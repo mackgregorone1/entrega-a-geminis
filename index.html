@@ -1,0 +1,2031 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    <title>Al Toke cambio bcv - Sistema P2P de Intercambio</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+    <!-- ==================== AUTHENTICATION ==================== -->
+    <div class="auth-container" id="auth-container">
+        <div class="auth-box">
+            <!-- BANNER DE BENEFICIOS -->
+            <div class="benefits-banner" id="benefits-banner">
+                <button class="close-banner" onclick="closeBenefitsBanner()">×</button>
+                <h3>🎉 ¡Bienvenido a Al Toke Express!</h3>
+                <ul>
+                    <li>Intercambia tokens digitales de forma segura P2P</li>
+                    <li>1 Token = 1 USD de valor estable respaldado</li>
+                    <li>Convierte tus tokens a Bolívares al mejor precio de mercado</li>
+                    <li>Usa tu billetera para pagos QR y transferencias por correo</li>
+                    <li>Comisiones bajas del 1% por transacción</li>
+                    <li>Soporte 24/7 y verificación de transacciones</li>
+                </ul>
+            </div>
+
+            <div class="auth-logo">
+                <div class="auth-logo-icon">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                    </svg>
+                </div>
+                <h1>Al Toke Express</h1>
+                <p>Sistema P2P de Intercambio</p>
+            </div>
+
+            <div class="auth-error" id="auth-error"></div>
+
+            <div class="auth-tabs">
+                <button class="auth-tab active" onclick="switchAuthTab('login', this)">Iniciar</button>
+                <button class="auth-tab" onclick="switchAuthTab('register', this)">Registrarse</button>
+            </div>
+
+            <!-- LOGIN FORM -->
+            <form class="auth-form active" id="login-form" onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label class="form-label">Correo electrónico</label>
+                    <input type="email" class="form-input" id="login-email" placeholder="tu@email.com" required
+                        style="font-size: 16px;">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Contraseña</label>
+                    <input type="password" class="form-input" id="login-password" placeholder="••••••••" required
+                        style="font-size: 16px;">
+                </div>
+                <button type="submit" class="btn-primary">INICIAR SESIÓN</button>
+            </form>
+
+            <!-- REGISTER FORM -->
+            <form class="auth-form" id="register-form" onsubmit="handleRegister(event)">
+                <div class="form-group">
+                    <label class="form-label">Nombre completo</label>
+                    <input type="text" class="form-input" id="reg-name" placeholder="Juan Pérez" required
+                        style="font-size: 16px;">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Correo electrónico</label>
+                    <input type="email" class="form-input" id="reg-email" placeholder="tu@email.com" required
+                        style="font-size: 16px;">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Teléfono</label>
+                    <input type="tel" class="form-input" id="reg-phone" placeholder="0412-1234567" required
+                        style="font-size: 16px;">
+                </div>
+
+                <!-- Datos Bancarios Obligatorios -->
+                <div
+                    style="background: #0a0a0a; border-radius: 12px; padding: 16px; margin-bottom: 16px; border: 1px solid #2a2a2a;">
+                    <h4
+                        style="font-size: 14px; color: #ff6b00; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path
+                                d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                        </svg>
+                        Datos Bancarios (Obligatorio)
+                    </h4>
+
+                    <div class="form-group">
+                        <label class="form-label">Titular de la cuenta</label>
+                        <input type="text" class="form-input" id="reg-bank-holder"
+                            placeholder="Nombre completo del titular" required style="font-size: 16px;">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Cédula del titular</label>
+                        <input type="text" class="form-input" id="reg-bank-id" placeholder="V-12345678" required
+                            style="font-size: 16px;">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Banco</label>
+                        <select class="form-select" id="reg-bank-name" required style="font-size: 16px;">
+                            <option value="">Selecciona tu banco</option>
+                            <option value="0102">Banco de Venezuela</option>
+                            <option value="0134">Banesco</option>
+                            <option value="0105">Mercantil</option>
+                            <option value="0108">Provincial</option>
+                            <option value="0114">Bancaribe</option>
+                            <option value="0138">Banco Plaza</option>
+                            <option value="0157">Banco Fondo Común</option>
+                            <option value="0163">Banco del Tesoro</option>
+                            <option value="0171">Banco Digital</option>
+                            <option value="0191">BNC</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Número de cuenta</label>
+                        <input type="text" class="form-input" id="reg-bank-account"
+                            placeholder="0134-1234-5678-9012-3456" required style="font-size: 16px;">
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label class="form-label">Tipo de cuenta</label>
+                        <select class="form-select" id="reg-bank-type" required style="font-size: 16px;">
+                            <option value="">Selecciona tipo</option>
+                            <option value="ahorro">Cuenta de Ahorro</option>
+                            <option value="corriente">Cuenta Corriente</option>
+                            <option value="pago">Cuenta de Pago Móvil</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">PIN de Seguridad (6 números)</label>
+                    <input type="password" class="form-input" id="reg-password" placeholder="••••••" required
+                        minlength="6" maxlength="6" style="font-size: 16px;" inputmode="numeric" pattern="[0-9]{6}"
+                        title="Tu PIN debe ser de 6 números.">
+                    <small class="form-hint">Tu clave debe ser de exactamente 6 números para poder liberar tus tokens
+                        después.</small>
+                </div>
+                <button type="submit" class="btn-primary">Crear Cuenta</button>
+            </form>
+
+            <a href="#" class="forgot-password" onclick="showForgotPasswordModal(); return false;">
+                ¿Olvidaste tu contraseña?
+            </a>
+        </div>
+    </div>
+
+    <!-- ==================== MAIN APPLICATION ==================== -->
+    <div class="app-container" id="app-container">
+
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <div class="logo-icon">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                        </svg>
+                    </div>
+                    <div class="logo-text">
+                        <h1>Al Toke Express</h1>
+                        <span id="header-role">Mercado P2P</span>
+                    </div>
+                </div>
+                <div class="header-actions">
+                    <div class="user-info">
+                        <span class="balance-display" id="user-balance" style="display: none;">0 TKN</span>
+                        <span class="balance-bs-display" id="user-balance-bs" style="display: none;">0 BS</span>
+                        <span class="user-id-badge" id="user-id-display">ID: --</span>
+                        <div class="user-avatar" id="user-avatar">U</div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Navigation User -->
+        <nav class="nav" id="user-nav">
+            <div class="nav-content">
+                <button class="nav-btn active" onclick="showSection('market')">Mercado P2P</button>
+                <button class="nav-btn" onclick="showSection('my-orders')">Mis Órdenes</button>
+                <button class="nav-btn" onclick="showSection('wallet')">Billetera</button>
+                <button class="nav-btn" onclick="showSection('profile')">Mi Perfil</button>
+            </div>
+        </nav>
+
+        <!-- Navigation Admin -->
+        <nav class="nav" id="admin-nav" style="display: none;">
+            <div class="nav-content">
+                <button class="nav-btn active" onclick="showSection('admin-dashboard')">Dashboard</button>
+                <button class="nav-btn" onclick="showSection('admin-market')">Gestión P2P</button>
+                <button class="nav-btn" onclick="showSection('admin-users')">Usuarios</button>
+                <button class="nav-btn" onclick="showSection('admin-orders')">Órdenes Activas</button>
+                <button class="nav-btn" onclick="showSection('admin-history')">Historial Global</button>
+                <button class="nav-btn" onclick="showSection('admin-settings')">Configuración</button>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main">
+
+            <!-- ==================== USER SECTIONS ==================== -->
+
+            <!-- ==================== MARKETPLACE P2P - MODO DENSIDAD BINANCE ==================== -->
+            <section class="section active" id="market-section">
+                <div class="p2p-header-binance">
+                    <div class="p2p-filter-bar">
+                        <!-- TOGGLE PILL ESTATICO: COMPRAR | VENDER -->
+                        <div class="toggle-pill">
+                            <button class="pill-btn active" onclick="filterOrders('buy')" id="pill-buy">COMPRAR</button>
+                            <button class="pill-btn" onclick="filterOrders('sell')" id="pill-sell">VENDER</button>
+                        </div>
+                        <div class="filter-chips">
+                            <select class="chip" id="filter-amount" onchange="filterByAmount(this.value)"
+                                style="font-size: 16px;">
+                                <option value="all">Monto ▼</option>
+                                <option value="small">0 - 10,000 BS</option>
+                                <option value="medium">10,000 - 50,000 BS</option>
+                                <option value="large">> 50,000 BS</option>
+                            </select>
+                            <select class="chip" id="filter-bank" onchange="filterByBank(this.value)"
+                                style="font-size: 16px;">
+                                <option value="all">Banco ▼</option>
+                                <option value="0102">Banco de Venezuela</option>
+                                <option value="0134">Banesco</option>
+                                <option value="0105">Mercantil</option>
+                                <option value="0108">Provincial</option>
+                                <option value="0114">Bancaribe</option>
+                                <option value="0138">Banco Plaza</option>
+                                <option value="0157">BFC</option>
+                                <option value="0163">Banco del Tesoro</option>
+                                <option value="0171">Banco Digital</option>
+                                <option value="0191">BNC</option>
+                            </select>
+                            <button class="chip filter-btn" onclick="resetFilters()" title="Limpiar filtros">🔄</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Lista densa tipo Binance -->
+                <div id="orders-list" class="p2p-list dense-mode">
+                    <!-- Renderizado por JS -->
+                </div>
+
+                <!-- FAB para crear orden (mobile) -->
+                <button class="fab-create" onclick="openCreateOrderModal()">
+                    <span>+</span>
+                </button>
+            </section>
+
+            <!-- MY ORDERS -->
+            <section class="section" id="my-orders-section">
+                <h2 class="section-title">Mis Órdenes</h2>
+                <p class="section-subtitle">Gestiona tus operaciones activas</p>
+
+                <div class="toggle-group" style="max-width: 400px;">
+                    <button class="toggle-btn active" onclick="toggleMyOrders('active', this)">Activas</button>
+                    <button class="toggle-btn" onclick="toggleMyOrders('completed', this)">Completadas</button>
+                </div>
+
+                <div id="my-orders-list">
+                    <!-- Generated by JS -->
+                </div>
+            </section>
+
+            <!-- WALLET -->
+            <section class="section" id="wallet-section">
+                <h2 class="section-title">Mi Billetera</h2>
+                <p class="section-subtitle">Gestiona tus tokens, pagos QR y transferencias</p>
+
+                <div class="grid-2">
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="card-title">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ff6b00"
+                                    stroke-width="2">
+                                    <path
+                                        d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                Balance en Tokens
+                            </span>
+                        </div>
+                        <div style="text-align: center; padding: 20px;">
+                            <div style="font-size: 36px; font-weight: 800; color: #ff6b00; margin-bottom: 4px;"
+                                id="wallet-balance">0</div>
+                            <div style="color: #6b7280; font-size: 14px; margin-bottom: 8px;">Tokens disponibles</div>
+                            <div style="font-size: 24px; font-weight: 700; color: #22c55e;" id="wallet-balance-bs">0 BS
+                            </div>
+                            <div style="color: #6b7280; font-size: 12px;">Equivalente en Bolívares</div>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                            <button class="btn-primary" onclick="openRedeemMenu()">Canjear</button>
+                            <button class="btn-secondary" onclick="openSendByEmailModal()">Enviar</button>
+                        </div>
+                        <button class="btn-primary"
+                            style="margin-top: 12px; background: linear-gradient(135deg, #3b82f6, #1d4ed8);"
+                            onclick="showQRCode()">
+                            📱 Mostrar mi QR
+                        </button>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="card-title">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#22c55e"
+                                    stroke-width="2">
+                                    <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                En Custodia (Escrow)
+                            </span>
+                        </div>
+                        <div style="text-align: center; padding: 20px;">
+                            <div style="font-size: 32px; font-weight: 800; color: #eab308; margin-bottom: 8px;"
+                                id="escrow-balance">0</div>
+                            <div style="color: #6b7280; font-size: 14px;">Tokens bloqueados</div>
+                            <div style="font-size: 18px; font-weight: 600; color: #eab308; margin-top: 8px;"
+                                id="escrow-balance-bs">0 BS</div>
+                        </div>
+                        <div
+                            style="background: rgba(234, 179, 8, 0.1); border-radius: 8px; padding: 12px; margin-top: 12px;">
+                            <p style="font-size: 12px; color: #eab308; text-align: center;">
+                                Estos tokens se liberarán automáticamente cuando se complete la transacción
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top: 20px;">
+                    <div class="card-header">
+                        <span class="card-title">Historial de Transacciones</span>
+                    </div>
+                    <div id="wallet-history">
+                        <!-- Generated by JS -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- PROFILE CON BOTÓN DE CERRAR SESIÓN EXCLUSIVO -->
+            <section class="section" id="profile-section">
+                <h2 class="section-title">Mi Perfil</h2>
+                <p class="section-subtitle">Gestiona tus datos personales y bancarios</p>
+
+                <div class="grid-2">
+                    <!-- Información Personal -->
+                    <div class="card">
+                        <div class="profile-section-title">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ff6b00"
+                                stroke-width="2" style="margin-right: 8px;">
+                                <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                            Información Personal
+                        </div>
+                        <form class="profile-form" id="profile-personal-form" onsubmit="saveProfilePersonal(event)">
+                            <div class="form-group">
+                                <label class="form-label">Nombre completo</label>
+                                <input type="text" class="form-input" id="profile-name" required
+                                    style="font-size: 16px;">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Correo electrónico</label>
+                                <input type="email" class="form-input" id="profile-email" required readonly
+                                    style="background: #1a1a1a; color: #6b7280; font-size: 16px;">
+                                <small style="color: #6b7280; font-size: 11px;">El correo no puede modificarse</small>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Número de teléfono</label>
+                                <input type="tel" class="form-input" id="profile-phone" required
+                                    style="font-size: 16px;">
+                            </div>
+                            <div class="profile-actions">
+                                <button type="submit" class="btn-primary" style="width: auto; margin: 0;">Guardar
+                                    Cambios</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Datos Bancarios -->
+                    <div class="card">
+                        <div class="profile-section-title">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#22c55e"
+                                stroke-width="2" style="margin-right: 8px;">
+                                <path
+                                    d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                            </svg>
+                            Datos Bancarios
+                        </div>
+                        <form class="profile-form" id="profile-bank-form" onsubmit="saveProfileBank(event)">
+                            <div class="form-group">
+                                <label class="form-label">Titular de la cuenta</label>
+                                <input type="text" class="form-input" id="profile-bank-holder" required
+                                    style="font-size: 16px;">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Cédula / RIF del titular</label>
+                                <input type="text" class="form-input" id="profile-bank-id" required
+                                    style="font-size: 16px;">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Banco</label>
+                                <select class="form-select" id="profile-bank-name" required style="font-size: 16px;">
+                                    <option value="">Selecciona tu banco</option>
+                                    <option value="0102">Banco de Venezuela</option>
+                                    <option value="0134">Banesco</option>
+                                    <option value="0105">Mercantil</option>
+                                    <option value="0108">Provincial</option>
+                                    <option value="0114">Bancaribe</option>
+                                    <option value="0138">Banco Plaza</option>
+                                    <option value="0157">Banco Fondo Común</option>
+                                    <option value="0163">Banco del Tesoro</option>
+                                    <option value="0171">Banco Digital</option>
+                                    <option value="0191">BNC</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Número de cuenta</label>
+                                <input type="text" class="form-input" id="profile-bank-account" required
+                                    style="font-size: 16px;">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Tipo de cuenta</label>
+                                <select class="form-select" id="profile-bank-type" required style="font-size: 16px;">
+                                    <option value="">Selecciona tipo</option>
+                                    <option value="ahorro">Cuenta de Ahorro</option>
+                                    <option value="corriente">Cuenta Corriente</option>
+                                    <option value="pago">Cuenta de Pago Móvil</option>
+                                </select>
+                            </div>
+                            <div class="profile-actions">
+                                <button type="submit" class="btn-primary" style="width: auto; margin: 0;">Guardar Datos
+                                    Bancarios</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- BOTÓN CERRAR SESIÓN - ÚNICA UBICACIÓN AUTORIZADA -->
+                <div class="card"
+                    style="margin-top: 20px; border: 2px solid rgba(239, 68, 68, 0.3); background: linear-gradient(145deg, #1a1a1a, #141414);">
+                    <div class="card-header" style="border-bottom: 1px solid rgba(239, 68, 68, 0.2);">
+                        <span class="card-title" style="color: #ef4444;">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444"
+                                stroke-width="2" style="margin-right: 8px;">
+                                <path
+                                    d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                            </svg>
+                            Cerrar Sesión
+                        </span>
+                    </div>
+                    <div style="padding: 20px; text-align: center;">
+                        <p style="color: #9ca3af; margin-bottom: 16px; font-size: 14px;">
+                            ¿Deseas salir de tu cuenta? Serás redirigido a la pantalla de inicio de sesión.
+                        </p>
+                        <button class="btn-logout" onclick="logout()"
+                            style="width: 100%; max-width: 300px; padding: 16px 24px; font-size: 16px;">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                style="width: 20px; height: 20px;">
+                                <path
+                                    d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                            </svg>
+                            <span>Salir de la Cuenta</span>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ==================== ADMIN SECTIONS ==================== -->
+
+            <!-- ADMIN DASHBOARD -->
+            <section class="section" id="admin-dashboard-section">
+                <h2 class="section-title">Panel de Control</h2>
+                <p class="section-subtitle">Visión general del sistema P2P</p>
+
+                <!-- Billetera de Ganancias Admin -->
+                <div class="admin-wallet-card">
+                    <div class="admin-wallet-title">💰 Billetera de Comisiones (Ganancias)</div>
+                    <div class="admin-wallet-amount" id="admin-commission-balance">0 TKN</div>
+                    <div class="admin-wallet-label">Total acumulado en comisiones del 1%</div>
+                    <div style="margin-top: 12px; font-size: 18px; font-weight: 600;" id="admin-commission-bs">0 BS
+                    </div>
+                </div>
+
+                <div class="grid-4" style="margin-bottom: 24px;">
+                    <div class="stat-box">
+                        <div class="stat-value" id="admin-stat-users">0</div>
+                        <div class="stat-label">Usuarios Activos</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="admin-stat-orders">0</div>
+                        <div class="stat-label">Órdenes Activas</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="admin-stat-volume">0</div>
+                        <div class="stat-label">Volumen 24h</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="admin-stat-commission">0</div>
+                        <div class="stat-label">Comisiones Hoy</div>
+                    </div>
+                </div>
+
+                <div class="grid-2">
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="card-title">Cuentas Oficiales de la Empresa</span>
+                        </div>
+
+                        <div class="bank-card">
+                            <div class="bank-icon">🏛️</div>
+                            <div class="bank-info">
+                                <div class="bank-name">Banco de Venezuela</div>
+                                <div class="bank-details">0102-0350-34-0001415775</div>
+                                <div class="bank-details">V-26213534 | Mack Gregory Artunduaga</div>
+                            </div>
+                        </div>
+
+                        <div class="bank-card">
+                            <div class="bank-icon" style="background: linear-gradient(135deg, #dc2626, #ef4444);">🏦
+                            </div>
+                            <div class="bank-info">
+                                <div class="bank-name">Banesco</div>
+                                <div class="bank-details">0134-0131-49-1311054787</div>
+                                <div class="bank-details">V-26213534 | Mack Gregory Artunduaga</div>
+                            </div>
+                        </div>
+
+                        <div class="bank-card">
+                            <div class="bank-icon" style="background: linear-gradient(135deg, #065f46, #10b981);">🏛️
+                            </div>
+                            <div class="bank-info">
+                                <div class="bank-name">Mercantil</div>
+                                <div class="bank-details">0105-0138-50-1138147079</div>
+                                <div class="bank-details">V-26213534 | Mack Artunduaga</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="card-title">Órdenes Recientes</span>
+                            <button class="btn-secondary" style="padding: 8px 16px; font-size: 12px;"
+                                onclick="showSection('admin-orders')">Ver todas</button>
+                        </div>
+                        <div id="admin-recent-orders" style="max-height: 300px; overflow-y: auto;">
+                            <!-- Generated by JS -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ADMIN MARKET MANAGEMENT -->
+            <section class="section" id="admin-market-section">
+                <h2 class="section-title">Gestión de Mercado P2P</h2>
+                <p class="section-subtitle">Control total de liquidez y moderación</p>
+
+                <div class="admin-market-tabs">
+                    <button class="admin-market-tab active" onclick="switchAdminMarketTab('liquidity')">
+                        <span>💧</span> Inyección de Liquidez
+                    </button>
+                    <button class="admin-market-tab" onclick="switchAdminMarketTab('moderation')">
+                        <span>🛡️</span> Moderación P2P
+                    </button>
+                    <button class="admin-market-tab" onclick="switchAdminMarketTab('tasa')">
+                        <span>💱</span> Configuración de Tasa
+                    </button>
+                </div>
+
+                <!-- SECCIÓN: INYECCIÓN DE LIQUIDEZ -->
+                <div class="admin-market-section active" id="liquidity-section">
+
+                    <!-- Estadísticas de Liquidez -->
+                    <div class="liquidity-stats">
+                        <div class="liquidity-stat">
+                            <div class="liquidity-stat-value" id="admin-total-liquidity">0</div>
+                            <div class="liquidity-stat-label">Total Tokens en Mercado</div>
+                        </div>
+                        <div class="liquidity-stat">
+                            <div class="liquidity-stat-value" id="admin-my-ads-count">0</div>
+                            <div class="liquidity-stat-label">Mis Anuncios Activos</div>
+                        </div>
+                        <div class="liquidity-stat">
+                            <div class="liquidity-stat-value" id="admin-user-ads-count">0</div>
+                            <div class="liquidity-stat-label">Anuncios de Usuarios</div>
+                        </div>
+                        <div class="liquidity-stat">
+                            <div class="liquidity-stat-value unlimited-badge">∞</div>
+                            <div class="liquidity-stat-label">Límite de Inyección</div>
+                        </div>
+                    </div>
+
+                    <!-- Formulario de Creación -->
+                    <div class="liquidity-form">
+                        <h3>
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3b82f6"
+                                stroke-width="2">
+                                <path d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                            </svg>
+                            Crear Nuevo Anuncio Oficial
+                        </h3>
+
+                        <div class="grid-2">
+                            <div class="form-group">
+                                <label class="form-label">Cantidad de Tokens <span class="unlimited-badge">SIN
+                                        LÍMITE</span></label>
+                                <input type="number" class="form-input" id="admin-ad-amount" placeholder="Ej: 50000"
+                                    min="1" style="font-size: 16px;">
+                                <small style="color: #6b7280; font-size: 12px;">Inyecta la liquidez que el mercado
+                                    necesite</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Precio por Token (Bs)</label>
+                                <input type="number" class="form-input" id="admin-ad-price" placeholder="1.00"
+                                    step="0.01" value="1.00" style="font-size: 16px;">
+                                <small style="color: #6b7280; font-size: 12px;">Tasa oficial recomendada: <span
+                                        id="tasa-recomendada">1.00</span> BS</small>
+                            </div>
+                        </div>
+
+                        <!-- DATOS BANCARIOS PARA ANUNCIO ADMIN -->
+                        <div class="ad-bank-form">
+                            <h4>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <path
+                                        d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                                </svg>
+                                Datos Bancarios para este Anuncio
+                            </h4>
+
+                            <div class="grid-2">
+                                <div class="form-group">
+                                    <label class="form-label">Titular de la cuenta *</label>
+                                    <input type="text" class="form-input" id="admin-ad-bank-holder"
+                                        placeholder="Nombre completo del titular" style="font-size: 16px;">
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label">Cédula/RIF del titular *</label>
+                                    <input type="text" class="form-input" id="admin-ad-bank-id" placeholder="V-12345678"
+                                        style="font-size: 16px;">
+                                </div>
+                            </div>
+
+                            <div class="grid-2">
+                                <div class="form-group">
+                                    <label class="form-label">Banco *</label>
+                                    <select class="form-select" id="admin-ad-bank-name" style="font-size: 16px;">
+                                        <option value="">Selecciona el banco</option>
+                                        <option value="0102">Banco de Venezuela</option>
+                                        <option value="0134">Banesco</option>
+                                        <option value="0105">Mercantil</option>
+                                        <option value="0108">Provincial</option>
+                                        <option value="0114">Bancaribe</option>
+                                        <option value="0138">Banco Plaza</option>
+                                        <option value="0157">Banco Fondo Común</option>
+                                        <option value="0163">Banco del Tesoro</option>
+                                        <option value="0171">Banco Digital</option>
+                                        <option value="0191">BNC</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label">Tipo de cuenta *</label>
+                                    <select class="form-select" id="admin-ad-bank-type" style="font-size: 16px;">
+                                        <option value="">Selecciona tipo</option>
+                                        <option value="ahorro">Cuenta de Ahorro</option>
+                                        <option value="corriente">Cuenta Corriente</option>
+                                        <option value="pago">Pago Móvil</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Número de cuenta *</label>
+                                <input type="text" class="form-input" id="admin-ad-bank-account"
+                                    placeholder="0134-1234-5678-9012-3456" style="font-size: 16px;">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Método de Pago Aceptado</label>
+                            <select class="form-select" id="admin-ad-payment" style="font-size: 16px;">
+                                <option value="all">Todos los métodos</option>
+                                <option value="transfer">Transferencia Bancaria</option>
+                                <option value="pago-movil">Pago Móvil</option>
+                                <option value="efectivo">Efectivo (Presencial)</option>
+                                <option value="binance">Binance Pay</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Notas adicionales (opcional)</label>
+                            <input type="text" class="form-input" id="admin-ad-notes"
+                                placeholder="Ej: Disponible 24/7, atención inmediata" style="font-size: 16px;">
+                        </div>
+
+                        <div style="display: flex; gap: 12px;">
+                            <button class="btn-primary" onclick="createAdminAd()" style="flex: 1;">
+                                Publicar Anuncio Verificado
+                            </button>
+                            <button class="btn-secondary" onclick="resetAdminAdForm()" style="width: auto;">
+                                Limpiar
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Lista de Mis Anuncios -->
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="card-title">
+                                <span class="verified-badge">ADMIN VERIFICADO</span>
+                                Mis Anuncios de Liquidez
+                            </span>
+                        </div>
+                        <div class="my-ads-list" id="admin-my-ads-list">
+                            <!-- Generated by JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECCIÓN: MODERACIÓN P2P -->
+                <div class="admin-market-section" id="moderation-section">
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="card-title">Moderación de Anuncios de Usuarios</span>
+                            <div style="display: flex; gap: 8px;">
+                                <input type="text" class="search-box" style="width: 250px; margin: 0; font-size: 16px;"
+                                    placeholder="Buscar por ID o usuario..." id="moderation-search"
+                                    oninput="filterModerationTable()">
+                            </div>
+                        </div>
+
+                        <div style="overflow-x: auto;">
+                            <table class="moderation-table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Usuario</th>
+                                        <th>Tipo</th>
+                                        <th>Cantidad</th>
+                                        <th>Precio</th>
+                                        <th>Estado</th>
+                                        <th>Fecha</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="moderation-table-body">
+                                    <!-- Generated by JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECCIÓN: CONFIGURACIÓN DE TASA MAESTRA -->
+                <div class="admin-market-section" id="tasa-section">
+                    <div class="tasa-config-box">
+                        <h3>
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3b82f6"
+                                stroke-width="2">
+                                <path
+                                    d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            Tasa de Cambio (1 Token = X Bolívares BS)
+                        </h3>
+
+                        <div class="tasa-input-group">
+                            <div class="form-group">
+                                <label class="form-label">Tasa de Cambio (Bolívares por 1 Token)</label>
+                                <input type="number" class="form-input" id="input-tasa-bcv" placeholder="1.00"
+                                    step="0.01" value="1.00" oninput="updateTasaPreview()" style="font-size: 16px;">
+                                <small style="color: #6b7280; font-size: 11px;">Esta tasa se aplicará a todos los
+                                    cálculos en BS</small>
+                            </div>
+
+                            <button class="btn-primary" onclick="guardarTasaMaestra()"
+                                style="width: auto; margin: 0; height: fit-content;">
+                                Actualizar Tasa
+                            </button>
+                        </div>
+
+                        <div class="tasa-rango">
+                            <strong>Rango de Validación P2P (Solo +10%):</strong><br>
+                            Mínimo: <span id="tasa-rango-min">1.00</span> BS (Tasa Base)<br>
+                            Máximo: <span id="tasa-rango-max">1.10</span> BS (Tasa Base + 10%)<br>
+                            <small>Los usuarios solo pueden publicar hasta 10% por encima de la tasa base. No hay límite
+                                inferior.</small>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="card-title">Estadísticas de Validación</span>
+                        </div>
+                        <div class="grid-3">
+                            <div class="stat-box">
+                                <div class="stat-value" id="tasa-actual">1.00</div>
+                                <div class="stat-label">Tasa Actual (BS)</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-value" id="publicaciones-bloqueadas">0</div>
+                                <div class="stat-label">Publicaciones Bloqueadas Hoy</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-value" id="publicaciones-activas">0</div>
+                                <div class="stat-label">Publicaciones Activas Válidas</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ADMIN USERS -->
+            <section class="section" id="admin-users-section">
+                <h2 class="section-title">Gestión de Usuarios</h2>
+                <p class="section-subtitle">Busca y administra usuarios del sistema</p>
+
+                <div class="card">
+                    <input type="text" class="search-box" id="user-search" placeholder="Buscar por nombre o ID..."
+                        oninput="searchUsers()" style="font-size: 16px;">
+
+                    <div style="overflow-x: auto;">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Usuario</th>
+                                    <th>Email</th>
+                                    <th>Teléfono</th>
+                                    <th>Balance TKN</th>
+                                    <th>Balance BS</th>
+                                    <th>Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody id="users-table-body">
+                                <!-- Generated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ADMIN ORDERS -->
+            <section class="section" id="admin-orders-section">
+                <h2 class="section-title">Monitor de Órdenes</h2>
+                <p class="section-subtitle">Supervisa transacciones en tiempo real</p>
+
+                <div class="card">
+                    <div class="filter-tabs" style="margin-bottom: 20px;">
+                        <button class="filter-tab active" onclick="filterAdminOrders('all')">Todas</button>
+                        <button class="filter-tab" onclick="filterAdminOrders('pending')">Pendientes</button>
+                        <button class="filter-tab" onclick="filterAdminOrders('escrow')">En Escrow</button>
+                        <button class="filter-tab" onclick="filterAdminOrders('dispute')">Disputas</button>
+                    </div>
+
+                    <div id="admin-orders-list">
+                        <!-- Generated by JS -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- ADMIN HISTORY -->
+            <section class="section" id="admin-history-section">
+                <h2 class="section-title">Historial Global</h2>
+                <p class="section-subtitle">Registro completo de operaciones finalizadas</p>
+
+                <div class="card">
+                    <div style="overflow-x: auto;">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>ID Orden</th>
+                                    <th>Vendedor</th>
+                                    <th>Comprador</th>
+                                    <th>Tipo</th>
+                                    <th>Monto TKN</th>
+                                    <th>Monto BS</th>
+                                    <th>Comisión (1%)</th>
+                                    <th>Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody id="history-table-body">
+                                <!-- Generated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div
+                        style="margin-top: 20px; padding: 16px; background: rgba(34, 197, 94, 0.1); border-radius: 12px; border: 1px solid rgba(34, 197, 94, 0.2);">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="color: #22c55e; font-weight: 600;">Total Comisiones Generadas:</span>
+                            <span style="color: #22c55e; font-size: 24px; font-weight: 800;" id="total-commissions">0
+                                TKN</span>
+                        </div>
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+                            <span style="color: #22c55e; font-weight: 600;">Equivalente en BS:</span>
+                            <span style="color: #22c55e; font-size: 18px; font-weight: 700;" id="total-commissions-bs">0
+                                BS</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ADMIN SETTINGS -->
+            <section class="section" id="admin-settings-section">
+                <h2 class="section-title">Configuración</h2>
+                <p class="section-subtitle">Parámetros del sistema</p>
+
+                <div class="grid-2">
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="card-title">Redirección Delivery</span>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">URL de Delivery</label>
+                            <input type="url" class="form-input" id="delivery-url" value="https://marea.pro/comidely  "
+                                style="font-size: 16px;">
+                        </div>
+                        <button class="btn-success" onclick="saveDeliveryUrl()">Guardar URL</button>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="card-title">Parámetros del Sistema</span>
+                        </div>
+                        <div class="info-box">
+                            <h4>Información</h4>
+                            <p style="font-size: 13px; color: #9ca3af; line-height: 1.6;">
+                                • 1 Token = 1 USD (Paridad fija)<br>
+                                • Comisión por transacción: 1%<br>
+                                • Límite de precio P2P: +10% sobre tasa base<br>
+                                • Tiempo máximo de escrow: 24 horas<br>
+                                • Tasa BS: <span id="config-tasa-bs">1.00</span> BS por Token
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- ==================== MODALS ==================== -->
+
+    <!-- CREATE ORDER MODAL CON VALIDACIÓN Y DATOS BANCARIOS -->
+    <div class="modal-overlay" id="create-order-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Crear Publicación P2P</h3>
+                <button class="modal-close" onclick="closeModal('create-order-modal')">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="toggle-group">
+                    <button class="toggle-btn active" onclick="toggleOrderType('sell')" id="btn-sell">Vender
+                        Tokens</button>
+                    <button class="toggle-btn" onclick="toggleOrderType('buy')" id="btn-buy">Comprar Tokens</button>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Cantidad de Tokens</label>
+                    <input type="number" class="form-input" id="order-amount" placeholder="Ej: 1000"
+                        oninput="calculateOrderTotal()" style="font-size: 16px;">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Precio por Token (Bs)</label>
+                    <div style="position: relative;">
+                        <input type="number" class="form-input" id="order-price" placeholder="1.00" step="0.01"
+                            oninput="validateAndCalculatePrice()" style="font-size: 16px;">
+                        <span
+                            style="position: absolute; right: 16px; top: 50%; transform: translateY(-50%); color: #6b7280; font-size: 13px;">BS</span>
+                    </div>
+                    <div class="price-validation" id="price-validation">
+                        <span>💡</span> Ingresa un precio para validar
+                    </div>
+                    <small style="color: #6b7280; font-size: 12px;">Máximo permitido: <span
+                            id="price-range-display">1.10</span> BS (+10% sobre tasa base)</small>
+                </div>
+
+                <!-- DATOS BANCARIOS DEL ANUNCIO -->
+                <div class="ad-bank-form" id="ad-bank-data-section">
+                    <h4>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path
+                                d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                        </svg>
+                        Datos Bancarios para recibir el pago
+                    </h4>
+
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label class="form-label">Titular de la cuenta *</label>
+                            <input type="text" class="form-input" id="ad-bank-holder" placeholder="Nombre completo"
+                                style="font-size: 16px;">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Cédula/RIF del titular *</label>
+                            <input type="text" class="form-input" id="ad-bank-id" placeholder="V-12345678"
+                                style="font-size: 16px;">
+                        </div>
+                    </div>
+
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label class="form-label">Banco *</label>
+                            <select class="form-select" id="ad-bank-name" style="font-size: 16px;">
+                                <option value="">Selecciona el banco</option>
+                                <option value="0102">Banco de Venezuela</option>
+                                <option value="0134">Banesco</option>
+                                <option value="0105">Mercantil</option>
+                                <option value="0108">Provincial</option>
+                                <option value="0114">Bancaribe</option>
+                                <option value="0138">Banco Plaza</option>
+                                <option value="0157">Banco Fondo Común</option>
+                                <option value="0163">Banco del Tesoro</option>
+                                <option value="0171">Banco Digital</option>
+                                <option value="0191">BNC</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Tipo de cuenta *</label>
+                            <select class="form-select" id="ad-bank-type" style="font-size: 16px;">
+                                <option value="">Selecciona tipo</option>
+                                <option value="ahorro">Cuenta de Ahorro</option>
+                                <option value="corriente">Cuenta Corriente</option>
+                                <option value="pago">Pago Móvil</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label class="form-label">Número de cuenta *</label>
+                        <input type="text" class="form-input" id="ad-bank-account"
+                            placeholder="0134-1234-5678-9012-3456" style="font-size: 16px;">
+                    </div>
+                </div>
+
+                <div class="alert">
+                    <svg class="alert-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path
+                            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <span class="alert-text" id="order-warning">
+                        Al vender, tus tokens serán bloqueados en escrow hasta que confirmes recibir el pago.
+                    </span>
+                </div>
+
+                <div style="background: #0a0a0a; border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                        <span style="color: #9ca3af;">Total a recibir (BS):</span>
+                        <span style="font-weight: 700;" id="order-total-bs">0 BS</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                        <span style="color: #9ca3af;">Comisión (1%):</span>
+                        <span style="color: #ef4444;" id="order-commission-usd">0 BS</span>
+                    </div>
+                    <div
+                        style="display: flex; justify-content: space-between; padding-top: 8px; border-top: 1px solid #2a2a2a;">
+                        <span style="color: #9ca3af;">Neto a recibir:</span>
+                        <span style="font-weight: 800; color: #22c55e;" id="order-net-bs">0 BS</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeModal('create-order-modal')">Cancelar</button>
+                <button class="btn-primary" id="btn-publicar-orden" onclick="createOrder()" disabled>
+                    Publicar Orden
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ORDER DETAIL MODAL CON CHAT, CRONÓMETRO Y UPLOAD DE COMPROBANTE -->
+    <div class="modal-overlay" id="order-detail-modal">
+        <div class="modal modal-lg">
+            <div class="modal-header">
+                <div class="modal-title">
+                    <div class="modal-icon">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 id="detail-order-id">Orden #001</h3>
+                        <p style="color: #6b7280; font-size: 13px;" id="detail-order-type">Venta de Tokens</p>
+                    </div>
+                </div>
+                <button class="modal-close" onclick="closeModal('order-detail-modal')">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="grid-2" style="margin-bottom: 20px;">
+                    <div>
+                        <!-- SELECTOR DE TIEMPO DE ESCROW -->
+                        <div class="escrow-time-selector" id="escrow-time-selector"
+                            style="margin-bottom: 16px; display: none;">
+                            <h4 style="font-size: 14px; color: #9ca3af; margin-bottom: 8px;">⏱️ Tiempo para completar el
+                                pago:</h4>
+                            <div class="time-options">
+                                <button class="time-option active" data-minutes="15" onclick="selectEscrowTime(15)">15
+                                    min</button>
+                                <button class="time-option" data-minutes="30" onclick="selectEscrowTime(30)">30
+                                    min</button>
+                            </div>
+                        </div>
+
+                        <!-- CRONÓMETRO -->
+                        <div class="escrow-timer" id="escrow-timer-box" style="display: none;">
+                            <div class="timer-icon">⏱️</div>
+                            <div class="timer-info">
+                                <h4>Tiempo Restante</h4>
+                                <div class="timer-display" id="timer-display">15:00</div>
+                                <p>Para liberación automática de escrow</p>
+                            </div>
+                        </div>
+
+                        <div class="escrow-status" id="escrow-status-box">
+                            <div class="escrow-icon">🔒</div>
+                            <div class="escrow-info">
+                                <h4 id="escrow-status-title">En Escrow</h4>
+                                <p id="escrow-status-desc">Tokens bloqueados a la espera de pago</p>
+                            </div>
+                        </div>
+
+                        <div style="background: #0a0a0a; border-radius: 12px; padding: 16px; margin-bottom: 16px;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+                                <span style="color: #9ca3af;">Cantidad:</span>
+                                <span style="font-weight: 700;" id="detail-amount">0 TKN</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+                                <span style="color: #9ca3af;">Precio unitario:</span>
+                                <span id="detail-price">0 BS</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+                                <span style="color: #9ca3af;">Total BS:</span>
+                                <span style="font-weight: 800; color: #ff6b00;" id="detail-total-bs">0 BS</span>
+                            </div>
+                            <div
+                                style="display: flex; justify-content: space-between; padding-top: 12px; border-top: 1px solid #2a2a2a;">
+                                <span style="color: #9ca3af;">Total USD:</span>
+                                <span style="font-weight: 800; color: #3b82f6;">$<span
+                                        id="detail-total-usd">0.00</span></span>
+                            </div>
+                        </div>
+
+                        <!-- DATOS BANCARIOS DEL ANUNCIO -->
+                        <div class="bank-details-display" id="ad-bank-details-display" style="display: none;">
+                            <h4>🏦 Datos Bancarios del Vendedor</h4>
+                            <div class="bank-detail-row">
+                                <span class="bank-detail-label">Banco:</span>
+                                <span class="bank-detail-value" id="ad-display-bank-name">-</span>
+                            </div>
+                            <div class="bank-detail-row">
+                                <span class="bank-detail-label">Tipo de Cuenta:</span>
+                                <span class="bank-detail-value" id="ad-display-bank-type">-</span>
+                            </div>
+                            <div class="bank-detail-row">
+                                <span class="bank-detail-label">Número de Cuenta:</span>
+                                <span class="bank-detail-value">
+                                    <span id="ad-display-bank-account">-</span>
+                                    <button class="copy-icon-btn"
+                                        onclick="copyTextToClipboard(document.getElementById('ad-display-bank-account').textContent)"
+                                        title="Copiar cuenta">📋</button>
+                                </span>
+                            </div>
+                            <div class="bank-detail-row">
+                                <span class="bank-detail-label">Titular:</span>
+                                <span class="bank-detail-value" id="ad-display-bank-holder">-</span>
+                            </div>
+                            <div class="bank-detail-row">
+                                <span class="bank-detail-label">Cédula/RIF:</span>
+                                <span class="bank-detail-value">
+                                    <span id="ad-display-bank-id">-</span>
+                                    <button class="copy-icon-btn"
+                                        onclick="copyTextToClipboard(document.getElementById('ad-display-bank-id').textContent)"
+                                        title="Copiar cédula">📋</button>
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- DATOS BANCARIOS DEL ADMIN (cuando el usuario compra a admin) -->
+                        <div class="bank-details-display" id="admin-bank-display"
+                            style="display: none; background: linear-gradient(135deg, #1a1a1a, #0f172a); border-color: #ff6b00;">
+                            <h4 style="color: #ff6b00;">🏦 Datos Bancarios de la Empresa (Admin)</h4>
+                            <p style="font-size: 12px; color: #9ca3af; margin-bottom: 12px;">Transfiere los Bolívares a
+                                cualquiera de estas cuentas:</p>
+
+                            <div
+                                style="background: rgba(255, 107, 0, 0.1); border-radius: 8px; padding: 12px; margin-bottom: 12px; border: 1px solid rgba(255, 107, 0, 0.2);">
+                                <div class="bank-detail-row" style="border-bottom: 1px solid #2a2a2a; padding: 8px 0;">
+                                    <span class="bank-detail-label">Banco:</span>
+                                    <span class="bank-detail-value">Banco de Venezuela</span>
+                                </div>
+                                <div class="bank-detail-row" style="border-bottom: 1px solid #2a2a2a; padding: 8px 0;">
+                                    <span class="bank-detail-label">Cuenta:</span>
+                                    <span class="bank-detail-value">
+                                        0102-0350-34-0001415775
+                                        <button class="copy-icon-btn"
+                                            onclick="copyTextToClipboard('0102-0350-34-0001415775')"
+                                            title="Copiar">📋</button>
+                                    </span>
+                                </div>
+                                <div class="bank-detail-row" style="padding: 8px 0;">
+                                    <span class="bank-detail-label">Titular:</span>
+                                    <span class="bank-detail-value">Mack Gregory Artunduaga (V-26213534)</span>
+                                </div>
+                            </div>
+
+                            <div
+                                style="background: rgba(255, 107, 0, 0.1); border-radius: 8px; padding: 12px; margin-bottom: 12px; border: 1px solid rgba(255, 107, 0, 0.2);">
+                                <div class="bank-detail-row" style="border-bottom: 1px solid #2a2a2a; padding: 8px 0;">
+                                    <span class="bank-detail-label">Banco:</span>
+                                    <span class="bank-detail-value">Banesco</span>
+                                </div>
+                                <div class="bank-detail-row" style="border-bottom: 1px solid #2a2a2a; padding: 8px 0;">
+                                    <span class="bank-detail-label">Cuenta:</span>
+                                    <span class="bank-detail-value">
+                                        0134-0131-49-1311054787
+                                        <button class="copy-icon-btn"
+                                            onclick="copyTextToClipboard('0134-0131-49-1311054787')"
+                                            title="Copiar">📋</button>
+                                    </span>
+                                </div>
+                                <div class="bank-detail-row" style="padding: 8px 0;">
+                                    <span class="bank-detail-label">Titular:</span>
+                                    <span class="bank-detail-value">Mack Gregory Artunduaga (V-26213534)</span>
+                                </div>
+                            </div>
+
+                            <div
+                                style="background: rgba(255, 107, 0, 0.1); border-radius: 8px; padding: 12px; border: 1px solid rgba(255, 107, 0, 0.2);">
+                                <div class="bank-detail-row" style="border-bottom: 1px solid #2a2a2a; padding: 8px 0;">
+                                    <span class="bank-detail-label">Banco:</span>
+                                    <span class="bank-detail-value">Mercantil</span>
+                                </div>
+                                <div class="bank-detail-row" style="border-bottom: 1px solid #2a2a2a; padding: 8px 0;">
+                                    <span class="bank-detail-label">Cuenta:</span>
+                                    <span class="bank-detail-value">
+                                        0105-0138-50-1138147079
+                                        <button class="copy-icon-btn"
+                                            onclick="copyTextToClipboard('0105-0138-50-1138147079')"
+                                            title="Copiar">📋</button>
+                                    </span>
+                                </div>
+                                <div class="bank-detail-row" style="padding: 8px 0;">
+                                    <span class="bank-detail-label">Titular:</span>
+                                    <span class="bank-detail-value">Mack Artunduaga (V-26213534)</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="action-buttons">
+                            <!-- Generated by JS -->
+                        </div>
+
+                        <!-- Botón de Liberar Tokens (ahora con verificación de clave) -->
+                        <button class="btn-liberar" id="btn-liberar-puntos" onclick="requestReleaseWithKey()"
+                            style="display: none;">
+                            🔓 Liberar Tokens al Comprador
+                        </button>
+                    </div>
+
+                    <div>
+                        <h4 style="margin-bottom: 12px; font-size: 14px; color: #9ca3af;">Chat de la Transacción</h4>
+                        <div class="chat-container">
+                            <div class="chat-messages" id="chat-messages">
+                                <!-- Generated by JS -->
+                            </div>
+
+                            <!-- UPLOAD DE COMPROBANTE -->
+                            <div class="upload-section" id="upload-section" style="display: none;">
+                                <div class="upload-area" id="upload-area"
+                                    onclick="document.getElementById('receipt-file').click()">
+                                    <div class="upload-icon">📤</div>
+                                    <p>Arrastra o haz clic para subir comprobante</p>
+                                    <small>PNG, JPG o PDF (máx. 5MB)</small>
+                                </div>
+                                <input type="file" id="receipt-file" class="upload-input" accept="image/*,.pdf"
+                                    onchange="handleReceiptUpload(event)">
+                                <div class="upload-preview" id="upload-preview" style="display: none;">
+                                    <img id="preview-image" src="" alt="Comprobante">
+                                    <button class="btn-remove-file" onclick="removeReceipt()">✕</button>
+                                </div>
+                            </div>
+
+                            <div class="chat-input-area">
+                                <input type="text" class="chat-input" id="chat-input"
+                                    placeholder="Escribe un mensaje..." onkeypress="handleChatKeypress(event)"
+                                    style="font-size: 16px;">
+                                <button class="btn-primary" style="width: auto; padding: 12px 20px;"
+                                    onclick="sendChatMessage()">Enviar</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PARTIAL BUY MODAL -->
+    <div class="modal-overlay" id="partial-buy-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Confirmar Intercambio</h3>
+                <button class="modal-close" onclick="closeModal('partial-buy-modal')">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="alert" style="margin-bottom: 16px;">
+                    <svg class="alert-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span class="alert-text">
+                        Puedes comprar una parte de los tokens disponibles. El vendedor mantendrá el resto en su
+                        anuncio.
+                    </span>
+                </div>
+
+                <div style="background: #0a0a0a; border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                        <span style="color: #9ca3af;">Disponible en esta oferta:</span>
+                        <span style="font-weight: 700;" id="partial-available">0 TKN</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span style="color: #9ca3af;">Precio:</span>
+                        <span style="font-weight: 700; color: #ff6b00;" id="partial-price">0 BS/TKN</span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Cantidad a comprar (TKN)</label>
+                    <input type="number" class="form-input" id="partial-amount" placeholder="Ej: 500"
+                        oninput="calculatePartialTotal()" style="font-size: 16px;">
+                    <div class="range-values">
+                        <span>Mín: <span id="partial-min">0</span></span>
+                        <span>Máx: <span id="partial-max">0</span></span>
+                    </div>
+                    <input type="range" class="range-slider" id="partial-slider" min="0" max="100"
+                        oninput="updatePartialFromSlider()">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">PIN de Seguridad (6 números)</label>
+                    <input type="password" class="form-input" id="partial-buy-pin" placeholder="••••••" required
+                        minlength="6" maxlength="6" style="font-size: 16px;" inputmode="numeric" pattern="[0-9]{6}"
+                        title="Tu PIN de 6 números para confirmar.">
+                    <small class="form-hint">Ingresa tu PIN de seguridad para bloquear los fondos e iniciar el
+                        intercambio.</small>
+                </div>
+
+                <div style="background: #0a0a0a; border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                        <span style="color: #9ca3af;">Monto a recibir:</span>
+                        <span style="font-weight: 700;" id="partial-receive-amount">0 TKN</span>
+                    </div>
+                    <div
+                        style="display: flex; justify-content: space-between; font-size: 16px; padding-top: 8px; border-top: 1px solid #2a2a2a; margin-top: 8px;">
+                        <span style="color: #9ca3af; font-weight: 600;">Costo total:</span>
+                        <span style="font-weight: 800; color: var(--color-primary);" id="partial-total-bs">0 BS</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeModal('partial-buy-modal')">Cancelar</button>
+                <button class="btn-primary" id="btn-confirm-partial" onclick="confirmPartialBuy()" disabled>
+                    Confirmar Compra
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- REDEEM MENU MODAL -->
+    <div class="modal-overlay" id="redeem-menu-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Canjear Tokens</h3>
+                <button class="modal-close" onclick="closeModal('redeem-menu-modal')">×</button>
+            </div>
+            <div class="modal-body">
+                <p style="color: #6b7280; margin-bottom: 20px; text-align: center;">Selecciona cómo deseas usar tus
+                    tokens</p>
+
+                <div class="redeem-grid">
+                    <div class="redeem-option" onclick="openP2PFromRedeem()">
+                        <div class="redeem-option-icon">💱</div>
+                        <h3>Mercado P2P</h3>
+                        <p>Vende tus tokens a otros usuarios</p>
+                    </div>
+
+                    <div class="redeem-option" onclick="openLocalRedeem()">
+                        <div class="redeem-option-icon">🏪</div>
+                        <h3>Canje Local</h3>
+                        <p>Canjea en comercios afiliados</p>
+                    </div>
+
+                    <div class="redeem-option" onclick="openDelivery()">
+                        <div class="redeem-option-icon">🛵</div>
+                        <h3>Pedir Delivery</h3>
+                        <p>Ordena comida a domicilio</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- QR CODE MODAL -->
+    <div class="modal-overlay" id="qr-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Mi Código QR</h3>
+                <button class="modal-close" onclick="closeModal('qr-modal')">×</button>
+            </div>
+            <div class="modal-body" style="text-align: center;">
+                <p style="color: #6b7280; margin-bottom: 20px;">Escanea para recibir pagos instantáneos</p>
+
+                <div class="qr-container">
+                    <div class="qr-code">
+                        <div class="qr-pattern"></div>
+                        <div class="qr-logo">⚡</div>
+                    </div>
+                    <div class="qr-amount" id="qr-balance">0 TKN</div>
+                    <div class="qr-label">Saldo Actual</div>
+                </div>
+
+                <div style="background: #0a0a0a; border-radius: 12px; padding: 16px; margin-top: 20px;">
+                    <div style="font-size: 12px; color: #6b7280; margin-bottom: 8px;">Tu ID de usuario</div>
+                    <div style="font-family: monospace; font-size: 18px; font-weight: 700; color: #ff6b00;"
+                        id="qr-user-id">--</div>
+                </div>
+
+                <button class="btn-primary" style="margin-top: 20px;" onclick="downloadQR()">
+                    📥 Descargar QR
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SEND BY EMAIL MODAL -->
+    <div class="modal-overlay" id="send-email-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Enviar Tokens por Correo</h3>
+                <button class="modal-close" onclick="closeModal('send-email-modal')">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="alert" style="margin-bottom: 16px;">
+                    <svg class="alert-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path
+                            d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    <span class="alert-text">
+                        Envía tokens a cualquier usuario registrado usando su correo electrónico. La transferencia es
+                        instantánea.
+                    </span>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Correo del destinatario</label>
+                    <input type="email" class="form-input" id="send-email-recipient" placeholder="amigo@email.com"
+                        required style="font-size: 16px;">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Cantidad de Tokens</label>
+                    <input type="number" class="form-input" id="send-email-amount" placeholder="Ej: 100" min="1"
+                        oninput="calculateSendTotal()" style="font-size: 16px;">
+                    <small style="color: #6b7280; font-size: 12px;">Disponible: <span id="send-available">0</span>
+                        TKN</small>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Mensaje (opcional)</label>
+                    <input type="text" class="form-input" id="send-email-message" placeholder="Ej: Pago por servicio"
+                        style="font-size: 16px;">
+                </div>
+
+                <div style="background: #0a0a0a; border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                        <span style="color: #9ca3af;">Monto a enviar:</span>
+                        <span style="font-weight: 700;" id="send-total">0 TKN</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 13px;">
+                        <span style="color: #6b7280;">Comisión (1%):</span>
+                        <span style="color: #ef4444;" id="send-commission-bs">0 BS</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeModal('send-email-modal')">Cancelar</button>
+                <button class="btn-primary" id="btn-send-email" onclick="sendByEmail()" disabled>
+                    Enviar Tokens
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- RECEIPT MODAL -->
+    <div class="modal-overlay" id="receipt-modal">
+        <div class="modal" style="max-width: 450px;">
+            <div class="modal-header">
+                <h3>Comprobante de Pago</h3>
+                <button class="modal-close" onclick="closeModal('receipt-modal')">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="receipt" id="receipt-content">
+                    <div class="receipt-header">
+                        <div class="receipt-logo">⚡</div>
+                        <div class="receipt-title">AL TOKE EXPRESS</div>
+                        <div class="receipt-id" id="receipt-id">TXN-001</div>
+                    </div>
+
+                    <div class="receipt-row">
+                        <span class="receipt-label">Fecha:</span>
+                        <span class="receipt-value" id="receipt-date">--</span>
+                    </div>
+                    <div class="receipt-row">
+                        <span class="receipt-label">De:</span>
+                        <span class="receipt-value" id="receipt-from">--</span>
+                    </div>
+                    <div class="receipt-row">
+                        <span class="receipt-label">Para:</span>
+                        <span class="receipt-value" id="receipt-to">--</span>
+                    </div>
+                    <div class="receipt-row">
+                        <span class="receipt-label">Concepto:</span>
+                        <span class="receipt-value" id="receipt-concept">Transferencia P2P</span>
+                    </div>
+
+                    <div class="receipt-total">
+                        <div class="receipt-row">
+                            <span class="receipt-label">Monto:</span>
+                            <span class="receipt-value" id="receipt-amount">0 TKN</span>
+                        </div>
+                        <div class="receipt-row" style="font-size: 14px; margin-top: 8px;">
+                            <span class="receipt-label">Equivalente BS:</span>
+                            <span class="receipt-value" id="receipt-bs">0 BS</span>
+                        </div>
+                    </div>
+
+                    <div class="receipt-footer">
+                        <div style="font-size: 10px; color: #9ca3af; margin-bottom: 4px;">Valida este comprobante en
+                        </div>
+                        <div style="font-weight: 700; color: #ff6b00;">altoke.express/verify</div>
+                        <div style="margin-top: 8px; font-size: 9px;">Este comprobante es válido para reclamos ante
+                            comercios afiliados</div>
+                    </div>
+
+                    <div class="receipt-stamp">PAGADO</div>
+                </div>
+
+                <button class="btn-primary" style="width: 100%; margin-top: 20px;" onclick="downloadReceipt()">
+                    📥 Descargar Comprobante
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ADMIN ORDER DETAIL MODAL -->
+    <div class="modal-overlay" id="admin-order-modal">
+        <div class="modal modal-lg">
+            <div class="modal-header">
+                <h3>Detalle de Orden (Admin)</h3>
+                <button class="modal-close" onclick="closeModal('admin-order-modal')">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="grid-2">
+                    <div>
+                        <div class="card" style="margin-bottom: 16px;">
+                            <div class="card-header">
+                                <span class="card-title">Información de la Orden</span>
+                            </div>
+                            <div id="admin-order-info">
+                                <!-- Generated by JS -->
+                            </div>
+                        </div>
+
+                        <!-- Datos bancarios del vendedor -->
+                        <div class="bank-details-display" id="admin-seller-bank" style="display: none;">
+                            <h4>🏦 Datos Bancarios del Vendedor</h4>
+                            <div id="admin-seller-bank-content"></div>
+                        </div>
+
+                        <!-- Datos bancarios del comprador -->
+                        <div class="bank-details-display" id="admin-buyer-bank"
+                            style="display: none; border-color: #22c55e;">
+                            <h4 style="color: #22c55e;">🏦 Datos Bancarios del Comprador</h4>
+                            <div id="admin-buyer-bank-content"></div>
+                        </div>
+
+                        <div class="card">
+                            <div class="card-header">
+                                <span class="card-title">Acciones Administrativas</span>
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 12px;">
+                                <button class="btn-liberar" onclick="forceReleaseEscrow()">
+                                    🔓 Liberación Forzada de Tokens
+                                </button>
+                                <button class="btn-danger" onclick="cancelOrderAdmin()">
+                                    ❌ Cancelar Orden
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 style="margin-bottom: 12px; font-size: 14px; color: #9ca3af;">Chat de la Transacción</h4>
+                        <div class="chat-container" style="height: 400px;">
+                            <div class="chat-messages" id="admin-chat-messages">
+                                <!-- Generated by JS -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- EDIT ADMIN AD MODAL -->
+    <div class="modal-overlay" id="edit-admin-ad-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Editar Anuncio Oficial</h3>
+                <button class="modal-close" onclick="closeModal('edit-admin-ad-modal')">×</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="edit-ad-id">
+
+                <div class="form-group">
+                    <label class="form-label">Cantidad de Tokens</label>
+                    <input type="number" class="form-input" id="edit-ad-amount" min="1" style="font-size: 16px;">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Precio por Token (Bs)</label>
+                    <input type="number" class="form-input" id="edit-ad-price" step="0.01" style="font-size: 16px;">
+                </div>
+
+                <!-- Editar datos bancarios -->
+                <div class="ad-bank-form">
+                    <h4>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path
+                                d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                        </svg>
+                        Datos Bancarios
+                    </h4>
+
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label class="form-label">Titular</label>
+                            <input type="text" class="form-input" id="edit-ad-bank-holder" style="font-size: 16px;">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Cédula/RIF</label>
+                            <input type="text" class="form-input" id="edit-ad-bank-id" style="font-size: 16px;">
+                        </div>
+                    </div>
+
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label class="form-label">Banco</label>
+                            <select class="form-select" id="edit-ad-bank-name" style="font-size: 16px;">
+                                <option value="0102">Banco de Venezuela</option>
+                                <option value="0134">Banesco</option>
+                                <option value="0105">Mercantil</option>
+                                <option value="0108">Provincial</option>
+                                <option value="0114">Bancaribe</option>
+                                <option value="0138">Banco Plaza</option>
+                                <option value="0157">Banco Fondo Común</option>
+                                <option value="0163">Banco del Tesoro</option>
+                                <option value="0171">Banco Digital</option>
+                                <option value="0191">BNC</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Tipo</label>
+                            <select class="form-select" id="edit-ad-bank-type" style="font-size: 16px;">
+                                <option value="ahorro">Cuenta de Ahorro</option>
+                                <option value="corriente">Cuenta Corriente</option>
+                                <option value="pago">Pago Móvil</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Número de cuenta</label>
+                        <input type="text" class="form-input" id="edit-ad-bank-account" style="font-size: 16px;">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Método de Pago</label>
+                    <select class="form-select" id="edit-ad-payment" style="font-size: 16px;">
+                        <option value="all">Todos los métodos</option>
+                        <option value="transfer">Transferencia Bancaria</option>
+                        <option value="pago-movil">Pago Móvil</option>
+                        <option value="efectivo">Efectivo (Presencial)</option>
+                        <option value="binance">Binance Pay</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Notas</label>
+                    <input type="text" class="form-input" id="edit-ad-notes" style="font-size: 16px;">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeModal('edit-admin-ad-modal')">Cancelar</button>
+                <button class="btn-success" onclick="saveEditedAdminAd()">Guardar Cambios</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- EDIT USER AD MODAL (ADMIN) -->
+    <div class="modal-overlay" id="edit-user-ad-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Editar Anuncio de Usuario</h3>
+                <button class="modal-close" onclick="closeModal('edit-user-ad-modal')">×</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="edit-user-ad-id">
+
+                <div class="alert" style="margin-bottom: 16px;">
+                    <svg class="alert-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path
+                            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <span class="alert-text">
+                        Estás editando un anuncio de un usuario. Usa esta función solo para corregir errores o
+                        mantenimiento del sistema.
+                    </span>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Cantidad de Tokens</label>
+                    <input type="number" class="form-input" id="edit-user-ad-amount" min="1" style="font-size: 16px;">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Precio por Token (Bs)</label>
+                    <input type="number" class="form-input" id="edit-user-ad-price" step="0.01"
+                        style="font-size: 16px;">
+                </div>
+
+                <!-- Editar datos bancarios del usuario -->
+                <div class="ad-bank-form">
+                    <h4>Datos Bancarios del Anuncio</h4>
+
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label class="form-label">Titular</label>
+                            <input type="text" class="form-input" id="edit-user-ad-bank-holder"
+                                style="font-size: 16px;">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Cédula/RIF</label>
+                            <input type="text" class="form-input" id="edit-user-ad-bank-id" style="font-size: 16px;">
+                        </div>
+                    </div>
+
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label class="form-label">Banco</label>
+                            <select class="form-select" id="edit-user-ad-bank-name" style="font-size: 16px;">
+                                <option value="0102">Banco de Venezuela</option>
+                                <option value="0134">Banesco</option>
+                                <option value="0105">Mercantil</option>
+                                <option value="0108">Provincial</option>
+                                <option value="0114">Bancaribe</option>
+                                <option value="0138">Banco Plaza</option>
+                                <option value="0157">Banco Fondo Común</option>
+                                <option value="0163">Banco del Tesoro</option>
+                                <option value="0171">Banco Digital</option>
+                                <option value="0191">BNC</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Tipo</label>
+                            <select class="form-select" id="edit-user-ad-bank-type" style="font-size: 16px;">
+                                <option value="ahorro">Cuenta de Ahorro</option>
+                                <option value="corriente">Cuenta Corriente</option>
+                                <option value="pago">Pago Móvil</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Número de cuenta</label>
+                        <input type="text" class="form-input" id="edit-user-ad-bank-account" style="font-size: 16px;">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Estado de Verificación</label>
+                    <select class="form-select" id="edit-user-ad-verified" style="font-size: 16px;">
+                        <option value="false">Normal</option>
+                        <option value="true">Verificado (Admin)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeModal('edit-user-ad-modal')">Cancelar</button>
+                <button class="btn-success" onclick="saveEditedUserAd()">Guardar Cambios</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MASTER KEY MODAL (Seguridad Admin) -->
+    <div class="modal-overlay" id="master-key-modal">
+        <div class="modal" style="max-width: 400px;">
+            <div class="modal-header">
+                <h3>🔐 Verificación de Seguridad</h3>
+                <button class="modal-close" onclick="closeModal('master-key-modal')">×</button>
+            </div>
+            <div class="modal-body" style="text-align: center;">
+                <div class="master-key-icon">🛡️</div>
+                <p style="color: #9ca3af; margin-bottom: 20px; font-size: 14px;">
+                    Esta acción requiere verificación adicional. Ingresa tu código de seguridad de 6 dígitos.
+                </p>
+
+                <div class="master-key-inputs">
+                    <input type="password" class="master-key-digit" maxlength="1" data-index="0"
+                        oninput="handleMasterKeyInput(this, 0)" onkeydown="handleMasterKeyBackspace(event, 0)"
+                        style="font-size: 16px;">
+                    <input type="password" class="master-key-digit" maxlength="1" data-index="1"
+                        oninput="handleMasterKeyInput(this, 1)" onkeydown="handleMasterKeyBackspace(event, 1)"
+                        style="font-size: 16px;">
+                    <input type="password" class="master-key-digit" maxlength="1" data-index="2"
+                        oninput="handleMasterKeyInput(this, 2)" onkeydown="handleMasterKeyBackspace(event, 2)"
+                        style="font-size: 16px;">
+                    <input type="password" class="master-key-digit" maxlength="1" data-index="3"
+                        oninput="handleMasterKeyInput(this, 3)" onkeydown="handleMasterKeyBackspace(event, 3)"
+                        style="font-size: 16px;">
+                    <input type="password" class="master-key-digit" maxlength="1" data-index="4"
+                        oninput="handleMasterKeyInput(this, 4)" onkeydown="handleMasterKeyBackspace(event, 4)"
+                        style="font-size: 16px;">
+                    <input type="password" class="master-key-digit" maxlength="1" data-index="5"
+                        oninput="handleMasterKeyInput(this, 5)" onkeydown="handleMasterKeyBackspace(event, 5)"
+                        style="font-size: 16px;">
+                </div>
+
+                <div id="master-key-error" style="color: #ef4444; font-size: 13px; margin-top: 12px; display: none;">
+                    Código incorrecto. Intenta de nuevo.
+                </div>
+
+                <button class="btn-primary" style="margin-top: 24px; width: 100%;" onclick="verifyMasterKey()">
+                    Verificar y Continuar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- RELEASE KEY MODAL (Liberación con clave de 6 dígitos) -->
+    <div class="modal-overlay" id="release-key-modal">
+        <div class="modal" style="max-width: 400px;">
+            <div class="modal-header">
+                <h3>🔐 Liberar Tokens</h3>
+                <button class="modal-close" onclick="closeModal('release-key-modal')">×</button>
+            </div>
+            <div class="modal-body" style="text-align: center;">
+                <div class="master-key-icon">🔓</div>
+                <p style="color: #9ca3af; margin-bottom: 20px; font-size: 14px;">
+                    Para liberar los tokens al comprador, ingresa tu clave de seguridad de 6 dígitos.
+                </p>
+
+                <div class="master-key-inputs" id="release-key-inputs">
+                    <input type="password" class="master-key-digit" inputmode="numeric" maxlength="1" data-index="0"
+                        oninput="handleReleaseKeyInput(this, 0)" onkeydown="handleReleaseKeyBackspace(event, 0)"
+                        style="font-size: 16px;">
+                    <input type="password" class="master-key-digit" inputmode="numeric" maxlength="1" data-index="1"
+                        oninput="handleReleaseKeyInput(this, 1)" onkeydown="handleReleaseKeyBackspace(event, 1)"
+                        style="font-size: 16px;">
+                    <input type="password" class="master-key-digit" maxlength="1" data-index="2"
+                        oninput="handleReleaseKeyInput(this, 2)" onkeydown="handleReleaseKeyBackspace(event, 2)"
+                        style="font-size: 16px;">
+                    <input type="password" class="master-key-digit" maxlength="1" data-index="3"
+                        oninput="handleReleaseKeyInput(this, 3)" onkeydown="handleReleaseKeyBackspace(event, 3)"
+                        style="font-size: 16px;">
+                    <input type="password" class="master-key-digit" maxlength="1" data-index="4"
+                        oninput="handleReleaseKeyInput(this, 4)" onkeydown="handleReleaseKeyBackspace(event, 4)"
+                        style="font-size: 16px;">
+                    <input type="password" class="master-key-digit" maxlength="1" data-index="5"
+                        oninput="handleReleaseKeyInput(this, 5)" onkeydown="handleReleaseKeyBackspace(event, 5)"
+                        style="font-size: 16px;">
+                </div>
+
+                <div id="release-key-error" style="color: #ef4444; font-size: 13px; margin-top: 12px; display: none;">
+                    Clave incorrecta. Intenta de nuevo.
+                </div>
+
+                <button class="btn-liberar" style="margin-top: 24px; width: 100%;" onclick="verifyReleaseKey()">
+                    Confirmar Liberación
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Navigation (Mobile-First) - VERSIÓN OUTLINE ESTILO BINANCE -->
+    <nav class="bottom-nav compact" id="mobile-nav">
+        <button class="nav-item active" onclick="showSection('market'); setActiveNav(this)">
+            <svg class="nav-icon-outline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                <polyline points="9 22 9 12 15 12 15 22" />
+            </svg>
+            <span class="nav-label">Inicio</span>
+        </button>
+        <button class="nav-item" onclick="showSection('my-orders'); setActiveNav(this)">
+            <svg class="nav-icon-outline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path
+                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+            <span class="nav-label">Órdenes</span>
+        </button>
+        <button class="nav-item" onclick="showSection('wallet'); setActiveNav(this)">
+            <svg class="nav-icon-outline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
+            </svg>
+            <span class="nav-label">Billetera</span>
+        </button>
+        <button class="nav-item" onclick="showSection('profile'); setActiveNav(this)">
+            <svg class="nav-icon-outline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
+                <circle cx="12" cy="7" r="4" />
+            </svg>
+            <span class="nav-label">Perfil</span>
+        </button>
+    </nav>
+
+    <script src="script.js"></script>
+
+    <!-- PARTIAL BUY MODAL -->
+    <div class="modal-overlay" id="partial-buy-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Confirmar Intercambio</h3>
+                <button class="modal-close" onclick="closeModal('partial-buy-modal')">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="alert" style="margin-bottom: 16px;">
+                    <svg class="alert-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span class="alert-text">
+                        Puedes comprar una parte de los tokens disponibles. El vendedor mantendrá el resto en su
+                        anuncio.
+                    </span>
+                </div>
+
+                <div style="background: #0a0a0a; border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                        <span style="color: #9ca3af;">Disponible en esta oferta:</span>
+                        <span style="font-weight: 700;" id="partial-available">0 TKN</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span style="color: #9ca3af;">Precio:</span>
+                        <span style="font-weight: 700; color: var(--color-primary);" id="partial-price">0 BS/TKN</span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Cantidad a comprar (TKN)</label>
+                    <input type="number" class="form-input" id="partial-amount" placeholder="Ej: 500"
+                        oninput="calculatePartialTotal()" style="font-size: 16px;">
+                    <div class="range-values">
+                        <span>Mín: <span id="partial-min">0</span></span>
+                        <span>Máx: <span id="partial-max">0</span></span>
+                    </div>
+                    <input type="range" class="range-slider" id="partial-slider" min="0" max="100"
+                        oninput="updatePartialFromSlider()">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">PIN de Seguridad (6 números)</label>
+                    <input type="password" class="form-input" id="partial-buy-pin" placeholder="••••••" required
+                        minlength="6" maxlength="6" style="font-size: 16px;" inputmode="numeric" pattern="[0-9]{6}"
+                        title="Tu PIN de 6 números para confirmar.">
+                    <small class="form-hint">Ingresa tu PIN de seguridad para bloquear los fondos e iniciar el
+                        intercambio.</small>
+                </div>
+
+                <div style="background: #0a0a0a; border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                        <span style="color: #9ca3af;">Monto a recibir:</span>
+                        <span style="font-weight: 700;" id="partial-receive-amount">0 TKN</span>
+                    </div>
+                    <div
+                        style="display: flex; justify-content: space-between; font-size: 16px; padding-top: 8px; border-top: 1px solid #2a2a2a; margin-top: 8px;">
+                        <span style="color: #9ca3af; font-weight: 600;">Costo total:</span>
+                        <span style="font-weight: 800; color: var(--color-primary);" id="partial-total-bs">0 BS</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeModal('partial-buy-modal')">Cancelar</button>
+                <button class="btn-primary" id="btn-confirm-partial" onclick="confirmPartialBuy()" disabled>
+                    Confirmar Compra
+                </button>
+            </div>
+        </div>
+    </div>
+
+    oninput="updatePartialFromSlider()">
+    </div>
+
+    <div class="form-group">
+        <label class="form-label">PIN de Seguridad (6 números)</label>
+        <input type="password" class="form-input" id="partial-buy-pin" placeholder="••••••" required minlength="6"
+            maxlength="6" style="font-size: 16px;" inputmode="numeric" pattern="[0-9]{6}"
+            title="Tu PIN de 6 números para confirmar.">
+        <small class="form-hint">Ingresa tu PIN de seguridad para bloquear los fondos e iniciar el
+            intercambio.</small>
+    </div>
+
+    <div style="background: #0a0a0a; border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+            <span style="color: #9ca3af;">Monto a recibir:</span>
+</body>
+
+</html>
