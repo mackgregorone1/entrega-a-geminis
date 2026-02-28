@@ -1,0 +1,3473 @@
+// ═══════════════════════════════════════════════════════════════════════════════
+// AL TOKE EXPRESS - SISTEMA P2P DE INTERCAMBIO v3.0
+// Versión Estratégica: Segmentación Directa, Cronómetro 15/30min, Liberación con Clave
+// Rol del Gestor: Configuración de Riesgo, Lógica de Negocio, Seguridad
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECCIÓN 1: CONFIGURACIÓN ESTRATÉGICA DEL SISTEMA (Editable por Gestor)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const SYSTEM_CONFIG= {
+    // PARÁMETROS DE RIESGO - LÍMITES DE MERCADO
+    COMMISSION_RATE: 0.01,
+    // 1% Comisión por transacción
+    PRICE_VARIATION_LIMIT: 0.10,
+    // LÍMITE ESTRATÉGICO: +10% sobre tasa base
+    BASE_RATE: 1.00,
+    // Tasa base inicial (1 Token = 1 BS)
+
+    // PARÁMETROS OPERATIVOS - CRONÓMETRO CONFIGURABLE
+    ESCROW_TIMEOUT_MINUTES: 15,
+    // Default: 15 minutos (opciones: 15 o 30)
+    MASTER_KEY_ATTEMPTS: 3,
+    // Intentos permitidos antes de bloqueo
+
+    // INTEGRACIONES EXTERNAS
+    DELIVERY_URL: 'https://marea.pro/comidely  ',
+
+    // DATOS BANCARIOS CORPORATIVOS
+    COMPANY_BANKS: [ {
+        name: 'Banco de Venezuela',
+            code: '0102',
+            account: '01020350340001415775',
+            id: 'V-26213534',
+            holder: 'Mack Gregory Artunduaga'
+    }
+
+    ,
+    {
+    name: 'Banesco',
+        code: '0134',
+        account: '01340131491311054787',
+        id: 'V-26213534',
+        holder: 'Mack Gregory Artunduaga'
+}
+
+,
+{
+name: 'Mercantil',
+    code: '0105',
+    account: '01050138501138147079',
+    id: 'V-26213534',
+    holder: 'Mack Artunduaga'
+}
+
+]
+}
+
+;
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECCIÓN 3: ESTADO GLOBAL DEL SISTEMA
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// INICIALIZACIÓN DEL CLIENTE SUPABASE (GLOBAL)
+// Las claves deben estar en variables de entorno en un entorno de producción.
+// Por ahora, las ponemos aquí para la migración.
+const SUPABASE_URL='TU_SUPABASE_URL'; // ⚠️ Reemplazar con tu URL de Supabase
+const SUPABASE_ANON_KEY='TU_SUPABASE_ANON_KEY'; // ⚠️ Reemplazar con tu Anon Key
+
+let supabase= {}
+
+;
+
+try {
+    supabase=supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}
+
+catch (e) {
+    console.error("Error inicializando Supabase. Asegúrate de agregar el script CDN al HTML.", e);
+    alert("Error de configuración: No se pudo conectar a la base de datos.");
+}
+
+
+let currentUser=null;
+let nextUserId=1;
+let nextOrderId=1;
+let nextTransactionId=1;
+
+// Variables de contexto operativo
+let currentChatOrderId=null;
+let currentTransaction=null;
+let currentPartialOrder=null;
+let currentAdminAdEdit=null;
+let currentUserAdEdit=null;
+let pendingAdminAction=null; // Acción pendiente de Master Key
+let currentReceiptFile=null; // Archivo de comprobante subido
+let timerInterval=null; // Intervalo del cronómetro
+let selectedEscrowTime=15; // Tiempo seleccionado para escrow (15 o 30 min)
+
+// Variables de estado Admin (Local)
+let adminMasterKeyAttempts=0;
+let adminMasterKeyLocked=false;
+let adminMasterKeyLockUntil=null;
+
+// Filtros de visualización
+let currentOrderFilter='buy'; // 'buy' = mostrar anuncios de VENTA (para que yo compre)
+let currentMyOrdersFilter='active';
+let currentAmountFilter='all';
+let currentBankFilter='all';
+let currentOrderType='sell';
+
+// Contadores de control
+let blockedPublicationsToday=0;
+
+// Almacenamiento de datos
+let users=[];
+let orders=[];
+let transactions=[];
+
+let chats= {}
+
+;
+
+let escrowTimers= {}
+
+; // Almacena timers de escrow por transacción
+
+// Datos de comprobante temporal
+let lastReceiptData=null;
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECCIÓN 4: PERSISTENCIA DE DATOS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function loadFromStorage() {
+    const savedUsers=localStorage.getItem('atk_users');
+    const savedOrders=localStorage.getItem('atk_orders');
+    const savedTransactions=localStorage.getItem('atk_transactions');
+    const savedChats=localStorage.getItem('atk_chats');
+    const savedNextIds=localStorage.getItem('atk_next_ids');
+    const savedBlocked=localStorage.getItem('atk_blocked_today');
+    const savedTasa=localStorage.getItem('atk_tasa_maestra');
+    const savedTimers=localStorage.getItem('atk_escrow_timers');
+    const savedEscrowTime=localStorage.getItem('atk_escrow_time');
+
+    if (savedUsers) users=JSON.parse(savedUsers);
+    if (savedOrders) orders=JSON.parse(savedOrders);
+    if (savedTransactions) transactions=JSON.parse(savedTransactions);
+    if (savedChats) chats=JSON.parse(savedChats);
+    if (savedTasa) SYSTEM_CONFIG.BASE_RATE=parseFloat(savedTasa);
+    if (savedTimers) escrowTimers=JSON.parse(savedTimers);
+    if (savedEscrowTime) selectedEscrowTime=parseInt(savedEscrowTime);
+
+    if (savedNextIds) {
+        const ids=JSON.parse(savedNextIds);
+        nextUserId=ids.userId || 1;
+        nextOrderId=ids.orderId || 1;
+        nextTransactionId=ids.transactionId || 1;
+    }
+
+    const lastDate=localStorage.getItem('atk_last_date');
+    const today=new Date().toDateString();
+
+    if (lastDate !==today) {
+        blockedPublicationsToday=0;
+        localStorage.setItem('atk_last_date', today);
+        localStorage.setItem('atk_blocked_today', '0');
+    }
+
+    else if (savedBlocked) {
+        blockedPublicationsToday=parseInt(savedBlocked);
+    }
+}
+}
+
+function saveToStorage() {
+    localStorage.setItem('atk_users', JSON.stringify(users));
+    localStorage.setItem('atk_orders', JSON.stringify(orders));
+    localStorage.setItem('atk_transactions', JSON.stringify(transactions));
+    localStorage.setItem('atk_chats', JSON.stringify(chats));
+
+    localStorage.setItem('atk_next_ids', JSON.stringify({
+            userId: nextUserId,
+            orderId: nextOrderId,
+            transactionId: nextTransactionId
+        }));
+localStorage.setItem('atk_blocked_today', blockedPublicationsToday.toString());
+localStorage.setItem('atk_escrow_timers', JSON.stringify(escrowTimers));
+localStorage.setItem('atk_escrow_time', selectedEscrowTime.toString());
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECCIÓN 5: INICIALIZACIÓN DEL SISTEMA
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function init() {
+    // loadFromStorage(); // La data local se cargará después de la autenticación
+
+    // Lógica de autenticación centralizada con Supabase
+    supabase.auth.onAuthStateChange(async (event, session)=> {
+            if (event==='SIGNED_IN' && session) {
+
+                // Usuario ha iniciado sesión. Obtenemos su perfil de la DB.
+                const {
+                    data: profile, error
+                }
+
+                =await supabase .from('profiles') .select('*') .eq('id', session.user.id) .single();
+
+                if (error) {
+                    console.error('Error fetching profile:', error);
+                    logout();
+                }
+
+                else {
+                    currentUser= {
+                        ...session.user, ...profile
+                    }
+
+                    ;
+                    initializeApp();
+                }
+            }
+
+            else if (event==='SIGNED_OUT') {
+                logout();
+            }
+        });
+
+    const bannerClosed=localStorage.getItem('atk_banner_closed');
+
+    if (bannerClosed==='true') {
+        const banner=document.getElementById('benefits-banner');
+        if (banner) banner.style.display='none';
+    }
+
+    document.querySelectorAll('.modal-overlay').forEach(modal=> {
+            modal.addEventListener('click', (e)=> {
+                    if (e.target===modal) modal.classList.remove('active');
+                });
+        });
+
+    // Iniciar cronómetros de escrow existentes
+    startExistingEscrowTimers();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECCIÓN 6: MASTER KEY - SISTEMA DE SEGURIDAD ADMIN
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function requireMasterKey(action, callback) {
+
+    // Verificar si hay bloqueo temporal
+    if (adminMasterKeyLocked && adminMasterKeyLockUntil) {
+        const now=new Date().getTime();
+
+        if (now < adminMasterKeyLockUntil) {
+            const minutesLeft=Math.ceil((adminMasterKeyLockUntil - now) / 60000);
+
+            showNotification('error', `Master Key bloqueado. Intenta en $ {
+                    minutesLeft
+                }
+
+                minutos.`);
+            return;
+        }
+
+        else {
+            // Desbloquear automáticamente
+            adminMasterKeyLocked=false;
+            adminMasterKeyAttempts=0;
+            adminMasterKeyLockUntil=null;
+        }
+    }
+
+    pendingAdminAction= {
+        action,
+        callback
+    }
+
+    ;
+
+    // Resetear inputs
+    document.querySelectorAll('.master-key-digit').forEach(input=> {
+            input.value='';
+            input.classList.remove('filled');
+        });
+    document.getElementById('master-key-error').style.display='none';
+
+    const modal=document.getElementById('master-key-modal');
+
+    if (modal) {
+        modal.classList.add('active');
+
+        // Focus en primer input
+        setTimeout(()=> {
+                document.querySelector('.master-key-digit[data-index="0"]')?.focus();
+            }
+
+            , 100);
+    }
+}
+
+function handleMasterKeyInput(input, index) {
+    const value=input.value;
+
+    if (value.length===1) {
+        input.classList.add('filled');
+
+        // Mover al siguiente input
+        if (index < 5) {
+            const next=document.querySelector(`.master-key-digit[data-index="${index + 1}"]`);
+            if (next) next.focus();
+        }
+
+        else {
+            // Último dígito, verificar automáticamente
+            setTimeout(verifyMasterKey, 200);
+        }
+    }
+}
+
+function handleMasterKeyBackspace(event, index) {
+    if (event.key==='Backspace' && !event.target.value && index > 0) {
+        const prev=document.querySelector(`.master-key-digit[data-index="${index - 1}"]`);
+
+        if (prev) {
+            prev.focus();
+            prev.value='';
+            prev.classList.remove('filled');
+        }
+    }
+}
+
+function verifyMasterKey() {
+    const digits=[];
+
+    document.querySelectorAll('.master-key-digit').forEach(input=> {
+            digits.push(input.value);
+        });
+
+    const enteredCode=digits.join('');
+    const errorEl=document.getElementById('master-key-error');
+
+    // Validación segura: El backend debe validar acciones sensibles.
+    // Aquí solo simulamos el paso UI si el usuario es admin.
+    if (currentUser && currentUser.role==='admin') {
+        adminMasterKeyAttempts=0;
+        closeModal('master-key-modal');
+
+        if (pendingAdminAction && pendingAdminAction.callback) {
+            pendingAdminAction.callback();
+            pendingAdminAction=null;
+        }
+
+        // showNotification('success', 'Verificación exitosa');
+    }
+
+    else {
+        // Código incorrecto
+        adminMasterKeyAttempts++;
+        if (errorEl) errorEl.style.display='block';
+
+        // Limpiar inputs
+        document.querySelectorAll('.master-key-digit').forEach(input=> {
+                input.value='';
+                input.classList.remove('filled');
+            });
+        document.querySelector('.master-key-digit[data-index="0"]')?.focus();
+
+        // Verificar bloqueo
+        if (adminMasterKeyAttempts >=SYSTEM_CONFIG.MASTER_KEY_ATTEMPTS) {
+            adminMasterKeyLocked=true;
+            adminMasterKeyLockUntil=new Date().getTime()+(30 * 60 * 1000); // 30 min
+            closeModal('master-key-modal');
+            showNotification('error', 'Demasiados intentos. Master Key bloqueado por 30 minutos.');
+        }
+
+        else {
+            showNotification('error', `Código incorrecto. Intentos restantes: $ {
+                    SYSTEM_CONFIG.MASTER_KEY_ATTEMPTS - adminMasterKeyAttempts
+                }
+
+                `);
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECCIÓN 7: CRONÓMETRO 15/30 MIN - LIBERACIÓN AUTOMÁTICA DE ESCROW
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function selectEscrowTime(minutes) {
+    selectedEscrowTime=minutes;
+    localStorage.setItem('atk_escrow_time', minutes.toString());
+
+    // Actualizar UI
+    document.querySelectorAll('.time-option').forEach(btn=> {
+            btn.classList.remove('active');
+
+            if (parseInt(btn.dataset.minutes)===minutes) {
+                btn.classList.add('active');
+            }
+        });
+
+    showNotification('info', `Tiempo seleccionado: $ {
+            minutes
+        }
+
+        minutos`);
+}
+
+function startEscrowTimer(transactionId) {
+    const transaction=transactions.find(t=> t.id===transactionId);
+    if ( !transaction) return;
+
+    // Usar el tiempo seleccionado (15 o 30 min)
+    const timeoutMs=selectedEscrowTime * 60 * 1000;
+    const endTime=new Date().getTime()+timeoutMs;
+
+    escrowTimers[transactionId]= {
+        endTime: endTime,
+            status: 'running',
+            duration: selectedEscrowTime
+    }
+
+    ;
+
+    saveToStorage();
+    updateEscrowTimerDisplay(transactionId);
+
+    // Iniciar intervalo si no existe
+    if ( !timerInterval) {
+        timerInterval=setInterval(()=> {
+                updateAllEscrowTimers();
+            }
+
+            , 1000);
+    }
+}
+
+function startExistingEscrowTimers() {
+
+    // Reanudar timers de transacciones pendientes
+    transactions.forEach(t=> {
+            if ((t.status==='pending' || t.status==='paid') && escrowTimers[t.id]) {
+                updateEscrowTimerDisplay(t.id);
+            }
+        });
+
+    if (Object.keys(escrowTimers).length > 0 && !timerInterval) {
+        timerInterval=setInterval(updateAllEscrowTimers, 1000);
+    }
+}
+
+function updateAllEscrowTimers() {
+    const now=new Date().getTime();
+    let hasActiveTimers=false;
+
+    Object.keys(escrowTimers).forEach(transactionId=> {
+            const timer=escrowTimers[transactionId];
+            const transaction=transactions.find(t=> t.id===transactionId);
+
+            if ( !transaction || (transaction.status !=='pending' && transaction.status !=='paid')) {
+                delete escrowTimers[transactionId];
+                return;
+            }
+
+            if (timer.status==='running') {
+                hasActiveTimers=true;
+                const remaining=timer.endTime - now;
+
+                if (remaining <=0) {
+                    // Tiempo agotado - cancelación automática (no liberación)
+                    autoCancelEscrow(transactionId);
+                }
+
+                else {
+                    updateEscrowTimerDisplay(transactionId, remaining);
+                }
+            }
+        });
+
+    if ( !hasActiveTimers && timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval=null;
+    }
+
+    saveToStorage();
+}
+
+function updateEscrowTimerDisplay(transactionId, remainingMs) {
+    const timerBox=document.getElementById('escrow-timer-box');
+    const timerDisplay=document.getElementById('timer-display');
+
+    if ( !timerBox || !timerDisplay) return;
+
+    const transaction=transactions.find(t=> t.id===transactionId);
+    if ( !transaction || transaction.id !==currentTransaction?.id) return;
+
+    if ( !remainingMs) {
+        const timer=escrowTimers[transactionId];
+        if ( !timer) return;
+        remainingMs=timer.endTime - new Date().getTime();
+    }
+
+    if (remainingMs <=0) {
+        timerBox.style.display='none';
+        return;
+    }
+
+    timerBox.style.display='flex';
+
+    // Formatear tiempo (MM:SS)
+    const minutes=Math.floor(remainingMs / (1000 * 60));
+    const seconds=Math.floor((remainingMs % (1000 * 60)) / 1000);
+
+    timerDisplay.textContent=`$ {
+        minutes.toString().padStart(2, '0')
+    }
+
+    :$ {
+        seconds.toString().padStart(2, '0')
+    }
+
+    `;
+
+    // Cambiar a modo urgente si quedan menos de 2 minutos
+    if (minutes < 2) {
+        timerBox.classList.add('urgent');
+    }
+
+    else {
+        timerBox.classList.remove('urgent');
+    }
+}
+
+function autoCancelEscrow(transactionId) {
+    const transaction=transactions.find(t=> t.id===transactionId);
+    if ( !transaction || transaction.status==='completed' || transaction.status==='cancelled') return;
+
+    // Cancelación automática por tiempo agotado
+    const seller=users.find(u=> u.id===transaction.sellerId);
+    const buyer=users.find(u=> u.id===transaction.buyerId);
+
+    if ( !seller || !buyer) return;
+
+    // Devolver tokens al vendedor
+    seller.escrow -=transaction.amount;
+    seller.balance+=transaction.amount;
+
+    transaction.status='cancelled';
+    transaction.cancelledAt=new Date().toISOString();
+    transaction.autoCancelled=true;
+    transaction.cancellationReason='Tiempo agotado sin pago';
+
+    // Actualizar orden
+    const order=orders.find(o=> o.id===transaction.orderId);
+
+    if (order) {
+        order.status='active';
+        order.counterpartyId=null;
+        order.transactionId=null;
+        updateOrder(order);
+    }
+
+    updateUser(seller);
+    delete escrowTimers[transactionId];
+    saveToStorage();
+
+    // Notificar si es la transacción actual
+    if (currentTransaction && currentTransaction.id===transactionId) {
+        showNotification('error', 'Orden cancelada automáticamente: tiempo agotado');
+        openChat(transaction.id, transaction.orderId);
+    }
+
+    updateBalanceDisplay();
+}
+
+// FRENO DE SEGURIDAD: Al presionar "He pagado", detener cronómetro
+function stopEscrowTimer(transactionId) {
+    if (escrowTimers[transactionId]) {
+        escrowTimers[transactionId].status='stopped';
+        saveToStorage();
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECCIÓN 8: LIBERACIÓN DE TOKENS CON CLAVE DE 6 DÍGITOS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function requestReleaseWithKey() {
+    if ( !currentTransaction) return;
+
+    if (currentTransaction.status !=='paid') {
+        showNotification('error', 'El comprador debe confirmar el pago primero');
+        return;
+    }
+
+    if (currentTransaction.sellerId !==currentUser.id && currentUser.role !=='admin') {
+        showNotification('error', 'Solo el vendedor puede liberar los tokens');
+        return;
+    }
+
+    // Mostrar modal de clave de liberación
+    document.querySelectorAll('#release-key-inputs .master-key-digit').forEach(input=> {
+            input.value='';
+            input.classList.remove('filled');
+        });
+    document.getElementById('release-key-error').style.display='none';
+
+    const modal=document.getElementById('release-key-modal');
+
+    if (modal) {
+        modal.classList.add('active');
+
+        setTimeout(()=> {
+                document.querySelector('#release-key-inputs .master-key-digit[data-index="0"]')?.focus();
+            }
+
+            , 100);
+    }
+}
+
+function handleReleaseKeyInput(input, index) {
+    const value=input.value;
+
+    if (value.length===1) {
+        input.classList.add('filled');
+
+        if (index < 5) {
+            const next=document.querySelector(`#release-key-inputs .master-key-digit[data-index="${index + 1}"]`);
+            if (next) next.focus();
+        }
+
+        else {
+            setTimeout(verifyReleaseKey, 200);
+        }
+    }
+}
+
+function handleReleaseKeyBackspace(event, index) {
+    if (event.key==='Backspace' && !event.target.value && index > 0) {
+        const prev=document.querySelector(`#release-key-inputs .master-key-digit[data-index="${index - 1}"]`);
+
+        if (prev) {
+            prev.focus();
+            prev.value='';
+            prev.classList.remove('filled');
+        }
+    }
+}
+
+function verifyReleaseKey() {
+    const digits=[];
+
+    document.querySelectorAll('#release-key-inputs .master-key-digit').forEach(input=> {
+            digits.push(input.value);
+        });
+
+    const enteredCode=digits.join('');
+    const errorEl=document.getElementById('release-key-error');
+
+    if (enteredCode===currentUser.password) {
+        // Clave correcta - proceder con liberación
+        closeModal('release-key-modal');
+        executeTokenRelease();
+    }
+
+    else {
+        errorEl.style.display='block';
+
+        document.querySelectorAll('#release-key-inputs .master-key-digit').forEach(input=> {
+                input.value='';
+                input.classList.remove('filled');
+            });
+        document.querySelector('#release-key-inputs .master-key-digit[data-index="0"]')?.focus();
+        showNotification('error', 'Clave incorrecta');
+    }
+}
+
+function executeTokenRelease() {
+    if ( !currentTransaction) return;
+
+    const transaction=currentTransaction;
+    const seller=users.find(u=> u.id===transaction.sellerId);
+    const buyer=users.find(u=> u.id===transaction.buyerId);
+
+    if ( !seller || !buyer) return;
+
+    // Detener cronómetro definitivamente
+    stopEscrowTimer(transaction.id);
+
+    seller.escrow -=transaction.amount;
+
+    const commission=transaction.commission;
+    const amountToBuyer=transaction.amount - commission;
+
+    buyer.balance+=amountToBuyer;
+    // La comisión se registra en backend vía RPC, no aquí.
+
+    transaction.status='completed';
+    transaction.completedAt=new Date().toISOString();
+    transaction.manuallyReleased=true;
+
+    const order=orders.find(o=> o.id===transaction.orderId);
+
+    if (order && !transaction.isPartial) {
+        order.status='completed';
+        order.escrowReleased=true;
+        updateOrder(order);
+    }
+
+    // Limpiar timer
+    delete escrowTimers[transaction.id];
+
+    updateUser(seller);
+    updateUser(buyer);
+    saveToStorage();
+
+    generateReceipt(transaction, seller, buyer);
+
+    showNotification('success', `Tokens liberados exitosamente. $ {
+            amountToBuyer.toLocaleString()
+        }
+
+        TKN transferidos al comprador.`);
+
+    openChat(transaction.id, transaction.orderId);
+    updateBalanceDisplay();
+    updateAdminCommissionDisplay();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECCIÓN 9: UPLOAD DE COMPROBANTE DE PAGO
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function handleReceiptUpload(event) {
+    const file=event.target.files[0];
+    if ( !file) return;
+
+    // Validar tipo y tamaño
+    const validTypes=['image/jpeg',
+    'image/png',
+    'image/jpg',
+    'application/pdf'];
+    const maxSize=5 * 1024 * 1024; // 5MB
+
+    if ( !validTypes.includes(file.type)) {
+        showNotification('error', 'Formato no válido. Usa PNG, JPG o PDF');
+        return;
+    }
+
+    if (file.size > maxSize) {
+        showNotification('error', 'Archivo demasiado grande. Máximo 5MB');
+        return;
+    }
+
+    currentReceiptFile=file;
+
+    // Mostrar preview
+    const preview=document.getElementById('upload-preview');
+    const previewImg=document.getElementById('preview-image');
+    const uploadArea=document.getElementById('upload-area');
+
+    if (file.type.startsWith ('image/')) {
+        const reader=new FileReader();
+
+        reader.onload=(e)=> {
+            previewImg.src=e.target.result;
+            preview.style.display='block';
+            uploadArea.style.display='none';
+        }
+
+        ;
+        reader.readAsDataURL(file);
+    }
+
+    else {
+        // Para PDFs mostrar icono genérico
+        previewImg.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmY2YjAwIiBzdHJva2Utd2lkdGg9IjIiPjxwYXRoIGQ9Ik0xNCAySDZhMiAyIDAgMCAwLTIgMnYxNmEyIDIgMCAwIDAgMiAyaDEyYTIgMiAwIDAgMCAyLTJWOGwtNi02eiIvPjxwb2x5bGluZSBwb2ludHM9IjE0IDIgMTQgOCAyMCA4Ii8+PHBhdGggZD0iTTE2IDEzaC04Ii8+PHBhdGggZD0iTTE2IDE3aC04Ii8+PHBhdGggZD0iTTEwIDloLTIiLz48L3N2Zz4=';
+        preview.style.display='block';
+        uploadArea.style.display='none';
+    }
+
+    // Agregar mensaje al chat
+    if (currentChatOrderId) {
+        if ( !chats[currentChatOrderId]) chats[currentChatOrderId]=[];
+
+        chats[currentChatOrderId].push({
+
+            userId: currentUser.id,
+            text: `📎 Comprobante de pago adjunto: $ {
+                file.name
+            }
+
+            `,
+            timestamp: new Date().toISOString(),
+            hasAttachment: true,
+            fileName: file.name
+        });
+    saveToStorage();
+    renderChatMessages(currentChatOrderId);
+
+    // Mostrar en UI de chat
+    showUploadedReceiptInChat(file);
+}
+
+showNotification('success', 'Comprobante subido correctamente');
+}
+
+function showUploadedReceiptInChat(file) {
+    const messagesContainer=document.getElementById('chat-messages');
+    if ( !messagesContainer) return;
+
+    const receiptDiv=document.createElement('div');
+    receiptDiv.className='chat-message system uploaded-receipt-message';
+
+    receiptDiv.innerHTML=` <div class="uploaded-receipt"><div style="font-size: 32px;">📄</div><div class="uploaded-receipt-info"><h5>Comprobante de Pago</h5><p>$ {
+        file.name
+    }
+
+    • $ {
+        (file.size / 1024).toFixed(1)
+    }
+
+    KB</p></div></div>`;
+    messagesContainer.appendChild(receiptDiv);
+    messagesContainer.scrollTop=messagesContainer.scrollHeight;
+}
+
+function removeReceipt() {
+    currentReceiptFile=null;
+    document.getElementById('receipt-file').value='';
+    document.getElementById('upload-preview').style.display='none';
+    document.getElementById('upload-area').style.display='flex';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECCIÓN 10: AUTENTICACIÓN Y SEGURIDAD
+// ═══════════════════════════════════════════════════════════════════════════════
+
+async function logout() {
+    currentUser=null;
+    selectedOrder=null;
+    currentTransaction=null;
+    currentPartialOrder=null;
+    pendingAdminAction=null;
+    localStorage.removeItem('currentSession');
+
+    const {
+        error
+    }
+
+    =await supabase.auth.signOut();
+
+    const appContainer=document.getElementById('app-container');
+    const authContainer=document.getElementById('auth-container');
+
+    if (appContainer) {
+        appContainer.classList.remove('active');
+        appContainer.style.display='none';
+    }
+
+    if (authContainer) authContainer.style.display='flex';
+
+    const loginForm=document.getElementById('login-form');
+    const registerForm=document.getElementById('register-form');
+    if (loginForm) loginForm.reset();
+    if (registerForm) registerForm.reset();
+
+    showNotification('info', 'Sesión cerrada correctamente');
+}
+
+function switchAuthTab(tab, clickedBtn) {
+    document.querySelectorAll('.auth-tab').forEach(t=> t.classList.remove('active'));
+    document.querySelectorAll('.auth-form').forEach(f=> f.classList.remove('active'));
+
+    if ( !clickedBtn) {
+        clickedBtn=document.querySelector(`.auth-tab[onclick*="'${tab}'"]`);
+    }
+
+    if (clickedBtn) clickedBtn.classList.add('active');
+
+    const form=document.getElementById(tab + '-form');
+    if (form) form.classList.add('active');
+    hideError();
+}
+
+function showError(message) {
+    const errorEl=document.getElementById('auth-error');
+
+    if (errorEl) {
+        errorEl.textContent=message;
+        errorEl.classList.add('show');
+    }
+}
+
+function hideError() {
+    const errorEl=document.getElementById('auth-error');
+    if (errorEl) errorEl.classList.remove('show');
+}
+
+async function handleLogin(e) {
+    e.preventDefault();
+    hideError();
+
+    const email=document.getElementById('login-email').value.trim();
+    const password=document.getElementById('login-password').value.trim();
+
+    const pinRegex=/^\d {
+        6
+    }
+
+    $/;
+
+    if ( !pinRegex.test(password)) {
+        showError('El PIN de seguridad debe contener exactamente 6 números.');
+        return;
+    }
+
+    // Lógica de login ahora apunta a Supabase
+    const {
+        data,
+        error
+    }
+
+    =await supabase.auth.signInWithPassword({
+        email: email,
+        password: password,
+    });
+
+if (error) {
+    showError(error.message);
+}
+
+// onAuthStateChange se encargará del resto
+}
+
+async function handleRegister(e) {
+    e.preventDefault();
+    hideError();
+
+    const name=document.getElementById('reg-name').value.trim();
+    const email=document.getElementById('reg-email').value.trim();
+    const password=document.getElementById('reg-password').value.trim();
+
+    // ⚠️ NOTA: Los datos bancarios y de teléfono ahora deben guardarse
+    // en un segundo paso, actualizando el perfil del usuario recién creado.
+    // const phone = document.getElementById('reg-phone').value.trim();
+    // const bankHolder = document.getElementById('reg-bank-holder').value.trim();
+    // ... etc
+
+    const pinRegex=/^\d {
+        6
+    }
+
+    $/;
+
+    if ( !pinRegex.test(password)) {
+        showError('Tu PIN de seguridad debe ser de exactamente 6 números.');
+        return;
+    }
+
+    // Lógica de registro ahora apunta a Supabase
+    const {
+        data,
+        error
+    }
+
+    =await supabase.auth.signUp({
+
+        email: email,
+        password: password,
+        options: {
+            data: {
+                full_name: name,
+                country_code: 'VE' // O tomarlo de un campo del formulario
+            }
+        }
+    });
+
+if (error) {
+    showError(error.message);
+}
+
+// onAuthStateChange se encargará del resto
+}
+
+function showForgotPasswordModal() {
+    const email=prompt('Ingresa tu correo electrónico para recuperar la contraseña:');
+
+    if (email && email.trim() !=='') {
+        const user=users.find(u=> u.email===email.trim());
+
+        if (user) {
+            showNotification('info', `Se ha enviado un enlace de recuperación a $ {
+                    email
+                }
+
+                `);
+        }
+
+        else {
+            showNotification('error', 'No existe cuenta con ese correo electrónico');
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECCIÓN 11: INICIALIZACIÓN DE LA APLICACIÓN
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function initializeApp() {
+    if ( !currentUser) return;
+
+    // Cargar datos locales que no dependen del usuario (órdenes, etc.)
+    loadFromStorage();
+
+    const authContainer=document.getElementById('auth-container');
+    const appContainer=document.getElementById('app-container');
+
+    if (authContainer) authContainer.style.display='none';
+
+    if (appContainer) {
+        appContainer.style.display='block';
+        appContainer.classList.add('active');
+    }
+
+    // LÓGICA DE ACCESO ADMIN SEGURA
+    // El rol 'admin' ahora viene de la base de datos, no de una variable local.
+    const isAdmin=currentUser.role==='admin';
+
+    const userIdDisplay=document.getElementById('user-id-display');
+    const userAvatar=document.getElementById('user-avatar');
+    const headerRole=document.getElementById('header-role');
+
+    if (userIdDisplay) {
+        userIdDisplay.textContent=isAdmin ? 'ADMIN' : `ID: $ {
+            currentUser.id
+        }
+
+        `;
+        userIdDisplay.className=isAdmin ? 'user-id-badge admin' : 'user-id-badge';
+    }
+
+    if (userAvatar) userAvatar.textContent=(currentUser.name || 'U').charAt(0).toUpperCase();
+    if (headerRole) headerRole.textContent=isAdmin ? 'Panel de Control' : 'Mercado P2P';
+
+    const userNav=document.getElementById('user-nav');
+    const adminNav=document.getElementById('admin-nav');
+
+    if (userNav) userNav.style.display=isAdmin ? 'none' : 'flex';
+    if (adminNav) adminNav.style.display=isAdmin ? 'flex' : 'none';
+
+    const userBalance=document.getElementById('user-balance');
+    const userBalanceBs=document.getElementById('user-balance-bs');
+
+    if (userBalance) userBalance.style.display=isAdmin ? 'none' : 'inline-flex';
+    if (userBalanceBs) userBalanceBs.style.display=isAdmin ? 'none' : 'inline-flex';
+
+    if ( !isAdmin) updateBalanceDisplay();
+
+    else {
+        // Si es admin, obtenemos las comisiones de forma segura
+        updateAdminCommissionDisplay();
+    }
+
+    const inputTasa=document.getElementById('input-tasa-bcv');
+
+    if (inputTasa) {
+        inputTasa.value=SYSTEM_CONFIG.BASE_RATE.toFixed(2);
+        updateTasaPreview();
+    }
+
+    updateTasaStats();
+
+    if (isAdmin) {
+        showSection('admin-dashboard');
+        renderAdminDashboard();
+    }
+
+    else {
+        showSection('market');
+        renderMarketplace();
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECCIÓN 12: NAVEGACIÓN
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function showSection(section) {
+    document.querySelectorAll('.section').forEach(s=> s.classList.remove('active'));
+
+    const sectionMap= {
+        'market': 'market-section',
+            'my-orders': 'my-orders-section',
+            'wallet': 'wallet-section',
+            'profile': 'profile-section',
+            'admin-dashboard': 'admin-dashboard-section',
+            'admin-market': 'admin-market-section',
+            'admin-users': 'admin-users-section',
+            'admin-orders': 'admin-orders-section',
+            'admin-history': 'admin-history-section',
+            'admin-settings': 'admin-settings-section'
+    }
+
+    ;
+
+    if (sectionMap[section]) {
+        const sectionEl=document.getElementById(sectionMap[section]);
+        if (sectionEl) sectionEl.classList.add('active');
+    }
+
+    const isAdmin=currentUser?.role==='admin';
+    const navId=isAdmin ? 'admin-nav' : 'user-nav';
+    const navContainer=document.getElementById(navId);
+
+    if (navContainer) {
+        const buttons=navContainer.querySelectorAll('.nav-btn');
+
+        buttons.forEach(btn=> {
+                btn.classList.remove('active');
+                const onclick=btn.getAttribute('onclick');
+
+                if (onclick && onclick.includes(`'${section}' `)) {
+                    btn.classList.add('active');
+                }
+            });
+    }
+
+    const fab=document.querySelector('.fab-create');
+
+    if (fab) {
+        fab.style.display=(section==='market') ? 'flex': 'none';
+    }
+
+    if (section==='market') renderMarketplace();
+    if (section==='my-orders') renderMyOrders();
+    if (section==='wallet') renderWalletHistory();
+    if (section==='profile') renderProfile();
+    if (section==='admin-dashboard') renderAdminDashboard();
+    if (section==='admin-market') renderAdminMarket();
+    if (section==='admin-users') renderUsersTable();
+    if (section==='admin-orders') renderAdminOrders();
+    if (section==='admin-history') renderHistory();
+}
+
+function setActiveNav(clickedItem) {
+    document.querySelectorAll('.bottom-nav .nav-item').forEach(item=> {
+            item.classList.remove('active');
+        });
+    if (clickedItem) clickedItem.classList.add('active');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECCIÓN 13: MERCADO P2P - SEGMENTACIÓN DIRECTA
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function renderMarketplace() {
+    const container=document.getElementById('orders-list');
+    if ( !container) return;
+
+    renderMarketplaceDense(container);
+}
+
+function renderMarketplaceDense(container) {
+    container.className='p2p-list dense-mode';
+
+    // SEGMENTACIÓN DIRECTA:
+    // Si currentOrderFilter = 'buy' → muestro anuncios de VENTA (para que yo compre)
+    // Si currentOrderFilter = 'sell' → muestro anuncios de COMPRA (para que yo venda)
+    let filteredOrders=orders.filter(o=> o.status==='active');
+
+    if (currentOrderFilter==='buy') {
+        // Quiero COMPRAR tokens → veo anuncios de VENTA (type = 'sell')
+        filteredOrders=filteredOrders.filter(o=> o.type==='sell');
+    }
+
+    else if (currentOrderFilter==='sell') {
+        // Quiero VENDER tokens → veo anuncios de COMPRA (type = 'buy')
+        filteredOrders=filteredOrders.filter(o=> o.type==='buy');
+    }
+
+    if (currentAmountFilter && currentAmountFilter !=='all') {
+        filteredOrders=filteredOrders.filter(o=> {
+                const totalBs=o.amount * o.price;
+                if (currentAmountFilter==='small') return totalBs <=10000;
+                if (currentAmountFilter==='medium') return totalBs > 10000 && totalBs <=50000;
+                if (currentAmountFilter==='large') return totalBs > 50000;
+                return true;
+            });
+    }
+
+    if (currentBankFilter && currentBankFilter !=='all') {
+        filteredOrders=filteredOrders.filter(o=> o.bankData && o.bankData.bank===currentBankFilter);
+    }
+
+    // Ordenar por mejor precio
+    filteredOrders.sort((a, b)=> {
+            if (currentOrderFilter==='buy') return a.price - b.price; // Comprar: menor precio primero
+            return b.price - a.price; // Vender: mayor precio primero
+        });
+
+    if (filteredOrders.length===0) {
+        container.innerHTML=` <div class="empty-state"><div class="empty-state-icon">📭</div><p style="font-size: 16px; margin-bottom: 8px;">No hay órdenes disponibles</p><p style="font-size: 13px; opacity: 0.7;">Ajusta los filtros o crea tu propia publicación</p></div>`;
+        return;
+    }
+
+    container.innerHTML=filteredOrders.map(order=> {
+            const user=users.find(u=> u.id===order.userId);
+            const isOwnOrder=order.userId===currentUser?.id;
+            const isAdminAd=order.isAdminAd || user?.role==='admin';
+
+            const minAmount=order.min || (order.amount * 0.05);
+            const maxAmount=order.amount;
+            const minBs=minAmount * order.price;
+            const maxBs=maxAmount * order.price;
+
+            const orderCount=Math.floor(Math.random() * 1500) + 50;
+            const completionRate=(98 + Math.random() * 1.9).toFixed(2);
+            const avgTime=Math.floor(Math.random() * 20) + 10;
+
+            // COLORES SEGÚN MANDATO:
+            // Botón Compra (cuando yo compro): Verde #2ebd85
+            // Botón Venta (cuando yo vendo): Rojo #f6465d
+            // Etiqueta Banco: Siempre Naranja
+            // Precio: Blanco resaltado
+
+            let actionText, btnClass, btnStyle;
+
+            if (currentOrderFilter==='buy') {
+                // Estoy en modo COMPRAR → el anuncio es de VENTA → botón dice "Comprar" y es VERDE
+                actionText='Comprar';
+                btnClass='btn-action-buy'; // Verde #2ebd85
+            }
+
+            else {
+                // Estoy en modo VENDER → el anuncio es de COMPRA → botón dice "Vender" y es ROJO
+                actionText='Vender';
+                btnClass='btn-action-sell'; // Rojo #f6465d
+            }
+
+            return ` <div class="order-row ${isOwnOrder ? 'disabled' : ''} ${isAdminAd ? 'admin-row' : ''}"
+
+            $ {
+                !isOwnOrder ? `onclick="handleOrderClick('${order.id}', event)" ` : ''
+            }
+
+            > <div class="order-main" > <div class="seller-line" > <div class="avatar-small" >$ {
+                (user?.name || 'U').charAt(0).toUpperCase()
+            }
+
+            </div> <span class="seller-name" title="${user?.name || 'Usuario'}" >$ {
+                user?.name || 'Usuario'
+            }
+
+            </span> $ {
+                isAdminAd ? '<span class="badge-admin">OFICIAL</span>' : '<span class="badge-verified">✓ KYC</span>'
+            }
+
+            <span class="stats-micro" >$ {
+                orderCount
+            }
+
+            órdenes · $ {
+                completionRate
+            }
+
+            %</span> <span class="like-rate" >⭐ 100%</span> </div> <div class="price-line" > <span class="price-big" style="color: #ffffff; font-weight: 800; text-shadow: 0 0 10px rgba(255,255,255,0.3);" >$ {
+                order.price.toFixed(2)
+            }
+
+            </span> <span class="price-unit" >BS/TKN</span> <span class="limit-micro" >$ {
+                formatBS(minBs)
+            }
+
+            - $ {
+                formatBS(maxBs)
+            }
+
+            </span> </div> <div class="meta-line" > <span class="available" >Disp: $ {
+                order.amount.toLocaleString()
+            }
+
+            TKN</span> $ {
+                order.bankData?.bank ? `<span class="bank-badge" style="background: #ff6b00; color: white; border: none; font-weight: 600;" >$ {
+                    getBankName(order.bankData.bank)
+                }
+
+                </span>` : '<span class="bank-badge" style="background: #ef4444; color: white; border: none;">Sin banco</span>'
+            }
+
+            <span class="time-micro" >⏱️ $ {
+                avgTime
+            }
+
+            min</span> </div> </div> <div class="order-action" > <button class="${btnClass}"
+            onclick="event.stopPropagation(); handleOrderAction('${order.id}')"
+
+            $ {
+                isOwnOrder ? 'disabled' : ''
+            }
+
+            > $ {
+                isOwnOrder ? 'Tú' : actionText
+            }
+
+            </button> </div> </div> `;
+        }).join('');
+}
+
+function handleOrderClick(orderId, event) {
+    if (event && event.target.closest('.btn-action-buy, .btn-action-sell')) return;
+    initiateBuy(orderId);
+}
+
+function handleOrderAction(orderId) {
+    initiateBuy(orderId);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECCIÓN 14: FILTROS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function filterOrders(type) {
+    currentOrderFilter=type;
+
+    // Actualizar UI de botones
+    document.querySelectorAll('.pill-btn').forEach(btn=> {
+            btn.classList.remove('active');
+        });
+
+    const activeBtn=document.getElementById(`pill-$ {
+            type
+        }
+
+        `);
+
+    if (activeBtn) {
+        activeBtn.classList.add('active');
+    }
+
+    renderMarketplace();
+}
+
+function filterByAmount(range) {
+    currentAmountFilter=range;
+    renderMarketplace();
+}
+
+function filterByBank(bank) {
+    currentBankFilter=bank;
+    renderMarketplace();
+}
+
+function resetFilters() {
+    currentAmountFilter='all';
+    currentBankFilter='all';
+    currentOrderFilter='buy';
+
+    const amountSelect=document.getElementById('filter-amount');
+    const bankSelect=document.getElementById('filter-bank');
+
+    if (amountSelect) amountSelect.value='all';
+    if (bankSelect) bankSelect.value='all';
+
+    document.querySelectorAll('.pill-btn').forEach(btn=> btn.classList.remove('active'));
+    const buyPill=document.getElementById('pill-buy');
+    if (buyPill) buyPill.classList.add('active');
+
+    renderMarketplace();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECCIÓN 15: FLUJO DE COMPRA P2P
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function initiateBuy(orderId) {
+    const order=orders.find(o=> o.id===orderId);
+    if ( !order) return;
+
+    if (order.userId===currentUser.id) {
+        showNotification('error', 'No puedes operar con tu propia orden');
+        return;
+    }
+
+    // Si el anuncio es de VENTA (alguien vende) → yo compro
+    // Si el anuncio es de COMPRA (alguien compra) → yo vendo
+    if (order.type==='sell') {
+        // Comprar tokens
+        openPartialBuyModal(order);
+    }
+
+    else {
+
+        // Vender tokens - verificar que tenga saldo
+        if (currentUser.balance < order.amount) {
+            showNotification('error', 'No tienes suficientes tokens para vender');
+            return;
+        }
+
+        iniciarCompraDirecta(orderId, order.amount);
+    }
+}
+
+function openPartialBuyModal(order) {
+    currentPartialOrder=order;
+    const maxAmount=order.amount;
+    const minAmount=Math.max(1, Math.floor(maxAmount * 0.05));
+
+    document.getElementById('partial-available').textContent=`$ {
+        maxAmount.toLocaleString()
+    }
+
+    TKN`;
+
+    document.getElementById('partial-price').textContent=`$ {
+        order.price.toFixed(2)
+    }
+
+    BS/TKN`;
+    document.getElementById('partial-min').textContent=minAmount;
+    document.getElementById('partial-max').textContent=maxAmount;
+
+    const slider=document.getElementById('partial-slider');
+
+    if (slider) {
+        slider.min=minAmount;
+        slider.max=maxAmount;
+        slider.value=minAmount;
+    }
+
+    document.getElementById('partial-amount').value='';
+    document.getElementById('partial-total-bs').textContent='0 BS';
+    document.getElementById('partial-commission-bs').textContent='0 BS';
+    document.getElementById('btn-confirm-partial').disabled=true;
+
+    const modal=document.getElementById('partial-buy-modal');
+    if (modal) modal.classList.add('active');
+}
+
+function updatePartialFromSlider() {
+    const slider=document.getElementById('partial-slider');
+    const partialAmount=document.getElementById('partial-amount');
+
+    if (slider && partialAmount) {
+        partialAmount.value=slider.value;
+        calculatePartialTotal();
+    }
+}
+
+function calculatePartialTotal() {
+    const amount=parseFloat(document.getElementById('partial-amount').value) || 0;
+    const maxAmount=currentPartialOrder ? currentPartialOrder.amount: 0;
+    const price=currentPartialOrder ? currentPartialOrder.price: 0;
+
+    const btnConfirmPartial=document.getElementById('btn-confirm-partial');
+
+    if (amount < 1 || amount > maxAmount) {
+        if (btnConfirmPartial) btnConfirmPartial.disabled=true;
+        return;
+    }
+
+    const totalBs = amount * price;
+
+    document.getElementById('partial-receive-amount').textContent = `${amount.toLocaleString()} TKN`;
+    document.getElementById('partial-total-bs').textContent = formatBS(totalBs);
+
+    if (btnConfirmPartial) btnConfirmPartial.disabled=false;
+
+    const slider=document.getElementById('partial-slider');
+    if (slider) slider.value=amount;
+}
+
+async function confirmPartialBuy() {
+    const amount=parseFloat(document.getElementById('partial-amount').value);
+    if ( !amount || amount <=0 || !currentPartialOrder) return;
+
+    closeModal('partial-buy-modal');
+    await iniciarCompraDirecta(currentPartialOrder.id, amount);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECCIÓN 16: GESTIÓN DE TRANSACCIONES Y ESCROW
+// ═══════════════════════════════════════════════════════════════════════════════
+
+async function iniciarCompraDirecta(orderId, amount) {
+    const order=orders.find(o=> o.id===orderId);
+    if ( !order) return;
+
+    // Lógica movida al backend. Llamada a la función RPC.
+    showNotification('info', 'Procesando intercambio...');
+
+    const { data: transactionId, error } = await supabase.rpc('start_p2p_transaction', {
+        p_order_id: orderId,
+        p_amount_to_buy: amount
+    });
+
+    if (error) {
+        console.error('Error al iniciar transacción P2P:', error);
+        showNotification('error', `Error: ${error.message}`);
+        return;
+    }
+
+    // La transacción fue creada exitosamente en el backend.
+    // Ahora necesitamos recargar los datos para reflejar los cambios.
+    // Por ahora, para simular, abriremos el chat con datos locales.
+    // En una implementación completa, se debería fetchear la nueva transacción.
+
+    showNotification('success', `Transacción iniciada. Tienes ${selectedEscrowTime} minutos para pagar.`);
+    
+    // TODO: En el futuro, fetchear la transacción desde la DB usando el transactionId devuelto.
+    // Por ahora, creamos un objeto local para abrir el chat.
+    const tempTransaction = {
+        id: transactionId, // Usamos el ID real devuelto por el RPC
+        orderId: order.id,
+        sellerId: order.type === 'sell' ? order.userId : currentUser.id,
+        buyerId: order.type === 'sell' ? currentUser.id : order.userId,
+        amount: amount,
+        price: order.price,
+        totalBs: amount * order.price,
+        status: 'pending',
+        // ... otros datos necesarios para openChat
+    };
+    transactions.push(tempTransaction); // Añadir a la lista local para que openChat funcione
+    currentTransaction = tempTransaction;
+
+    // Actualizar la orden localmente para reflejar el cambio visual inmediato
+    if (amount < order.amount) {
+        order.amount -= amount;
+    } else {
+        order.status = 'in_transaction';
+    }
+    
+    openChat(transactionId, order.id);
+    renderMarketplace(); // Re-renderizar el mercado para mostrar la orden actualizada
+    updateBalanceDisplay(); // Actualizar balances si es necesario
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECCIÓN 17: CHAT Y COMUNICACIÓN
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function openChat(transactionId, orderId) {
+    currentChatOrderId=orderId;
+    const transaction=transactions.find(t=> t.id===transactionId);
+    const order=orders.find(o=> o.id===orderId);
+
+    if ( !transaction || !order) return;
+
+    document.getElementById('detail-order-id').textContent=`Transacción #$ {
+        transaction.id
+    }
+
+    `;
+    document.getElementById('detail-order-type').textContent=order.type==='sell' ? 'Compra de Tokens' : 'Venta de Tokens';
+
+    document.getElementById('detail-amount').textContent=`$ {
+        transaction.amount.toLocaleString()
+    }
+
+    TKN`;
+
+    document.getElementById('detail-price').textContent=`$ {
+        transaction.price.toFixed(2)
+    }
+
+    BS`;
+    document.getElementById('detail-total-bs').textContent=formatBS(transaction.totalBs);
+    document.getElementById('detail-total-usd').textContent=transaction.amount.toLocaleString();
+
+    const isSeller=transaction.sellerId===currentUser.id;
+    const isBuyer=transaction.buyerId===currentUser.id;
+
+    // Mostrar selector de tiempo solo al inicio (status pending)
+    const timeSelector=document.getElementById('escrow-time-selector');
+
+    if (timeSelector) {
+        timeSelector.style.display=(transaction.status==='pending' && isBuyer) ? 'block': 'none';
+    }
+
+    // Mostrar cronómetro si está activo
+    const timerBox=document.getElementById('escrow-timer-box');
+
+    if (timerBox && escrowTimers[transaction.id] && (transaction.status==='pending' || transaction.status==='paid')) {
+        timerBox.style.display='flex';
+        updateEscrowTimerDisplay(transaction.id);
+    }
+
+    else if (timerBox) {
+        timerBox.style.display='none';
+    }
+
+    // Mostrar sección de upload solo para compradores
+    const uploadSection=document.getElementById('upload-section');
+
+    if (uploadSection) {
+        uploadSection.style.display=isBuyer && transaction.status==='pending' ? 'block': 'none';
+    }
+
+    // Botón de liberar con clave (solo para vendedor cuando está pagado)
+    const btnLiberar=document.getElementById('btn-liberar-puntos');
+
+    if (btnLiberar) {
+        if (isSeller && transaction.status==='paid') {
+            btnLiberar.style.display='block';
+            btnLiberar.disabled=false;
+            btnLiberar.textContent='🔓 Liberar Tokens (Requiere Clave)';
+            btnLiberar.onclick=requestReleaseWithKey; // Nueva función con clave
+        }
+
+        else if (transaction.status==='completed') {
+            btnLiberar.style.display='block';
+            btnLiberar.disabled=true;
+            btnLiberar.textContent='✅ Tokens Liberados';
+            btnLiberar.onclick=null;
+        }
+
+        else {
+            btnLiberar.style.display='none';
+        }
+    }
+
+    const statusBox=document.getElementById('escrow-status-box');
+    const statusTitle=document.getElementById('escrow-status-title');
+    const statusDesc=document.getElementById('escrow-status-desc');
+
+    if (statusBox && statusTitle && statusDesc) {
+        if (transaction.status==='pending') {
+            statusBox.className='escrow-status';
+            statusTitle.textContent='Esperando Pago';
+
+            statusDesc.textContent=isBuyer ? `Realiza el pago en BS. Tiempo límite: $ {
+                selectedEscrowTime
+            }
+
+            min` : 'Esperando confirmación de pago del comprador';
+        }
+
+        else if (transaction.status==='paid') {
+            statusBox.className='escrow-status active';
+            statusTitle.textContent='Pago Confirmado';
+            statusDesc.textContent=isSeller ? 'El comprador ha pagado. Ingresa tu clave para liberar.': 'Esperando liberación del vendedor';
+        }
+
+        else if (transaction.status==='completed') {
+            statusBox.className='escrow-status completed';
+            statusTitle.textContent='Transacción Completada';
+            statusDesc.textContent='Los tokens han sido transferidos exitosamente';
+        }
+
+        else if (transaction.status==='cancelled') {
+            statusBox.className='escrow-status cancelled';
+            statusTitle.textContent='Transacción Cancelada';
+            statusDesc.textContent=transaction.cancellationReason || 'Tiempo agotado sin pago';
+        }
+    }
+
+    const adBankDisplay=document.getElementById('ad-bank-details-display');
+    const adminBankDisplay=document.getElementById('admin-bank-display');
+
+    if (isBuyer && order.type==='sell' && order.bankData) {
+        if (adBankDisplay) {
+            adBankDisplay.style.display='block';
+            document.getElementById('ad-display-bank-name').textContent=getBankName(order.bankData.bank);
+            document.getElementById('ad-display-bank-type').textContent=getAccountTypeName(order.bankData.type);
+            document.getElementById('ad-display-bank-account').textContent=order.bankData.account;
+            document.getElementById('ad-display-bank-holder').textContent=order.bankData.holder;
+            document.getElementById('ad-display-bank-id').textContent=order.bankData.id;
+        }
+
+        if (adminBankDisplay) adminBankDisplay.style.display='none';
+    }
+
+    else if (isBuyer && order.isAdminAd) {
+        if (adBankDisplay) adBankDisplay.style.display='none';
+        if (adminBankDisplay) adminBankDisplay.style.display='block';
+    }
+
+    else {
+        if (adBankDisplay) adBankDisplay.style.display='none';
+        if (adminBankDisplay) adminBankDisplay.style.display='none';
+    }
+
+    const actionButtons=document.getElementById('action-buttons');
+
+    if (actionButtons) {
+        actionButtons.innerHTML='';
+
+        if (transaction.status==='pending' && isBuyer) {
+            actionButtons.innerHTML=` <button class="btn-success" onclick="marcarComoPagado('${transaction.id}')" style="width: 100%;">✅ He realizado el pago en BS </button>`;
+        }
+
+        else if (transaction.status==='pending' && isSeller) {
+            actionButtons.innerHTML=` <div style="background: rgba(234, 179, 8, 0.1); border-radius: 8px; padding: 12px; text-align: center; color: #eab308;">⏳ Esperando confirmación de pago del comprador </div>`;
+        }
+
+        else if (transaction.status==='paid' && isSeller) {
+            actionButtons.innerHTML=` <div style="background: rgba(34, 197, 94, 0.1); border-radius: 8px; padding: 12px; text-align: center; color: #22c55e; margin-bottom: 12px;">✅ El comprador ha confirmado el pago en BS </div><button class="btn-liberar" onclick="requestReleaseWithKey()" style="width: 100%;">🔓 Liberar Tokens (Requiere Clave) </button>`;
+        }
+
+        else if (transaction.status==='completed') {
+            actionButtons.innerHTML=` <div style="background: rgba(59, 130, 246, 0.1); border-radius: 8px; padding: 12px; text-align: center; color: #60a5fa;">✅ Transacción completada exitosamente </div>`;
+        }
+
+        else if (transaction.status==='cancelled') {
+            actionButtons.innerHTML=` <div style="background: rgba(239, 68, 68, 0.1); border-radius: 8px; padding: 12px; text-align: center; color: #ef4444;">❌ Transacción cancelada: $ {
+                transaction.cancellationReason || 'Tiempo agotado'
+            }
+
+            </div>`;
+        }
+    }
+
+    renderChatMessages(orderId);
+    const modal=document.getElementById('order-detail-modal');
+    if (modal) modal.classList.add('active');
+}
+
+function marcarComoPagado(transactionId) {
+    const transaction=transactions.find(t=> t.id===transactionId);
+    if ( !transaction) return;
+
+    // FRENO DE SEGURIDAD: Detener cronómetro al marcar como pagado
+    stopEscrowTimer(transactionId);
+
+    transaction.status='paid';
+    transaction.paidAt=new Date().toISOString();
+    saveToStorage();
+
+    showNotification('success', 'Pago confirmado. Esperando liberación del vendedor.');
+    openChat(transaction.id, transaction.orderId);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECCIÓN 18: SISTEMA DE MENSAJERÍA
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function renderChatMessages(orderId) {
+    const container=document.getElementById('chat-messages');
+    const messages=chats[orderId] || [];
+
+    if (messages.length===0) {
+        if (container) {
+            container.innerHTML=` <div class="chat-message system">💬 Chat iniciado. Comunícate con $ {
+                currentTransaction ? (currentTransaction.sellerId===currentUser.id ? 'el comprador' : 'el vendedor'): 'la contraparte'
+            }
+
+            para coordinar el pago. </div>`;
+        }
+
+        return;
+    }
+
+    if (container) {
+        container.innerHTML=messages.map(msg=> {
+                const isMe=msg.userId===currentUser.id;
+                const user=users.find(u=> u.id===msg.userId);
+
+                if (msg.hasAttachment) {
+                    return ` <div class="chat-message ${isMe ? 'sent' : 'received'} uploaded-receipt-message" > <div class="uploaded-receipt" > <div style="font-size: 24px;" >📄</div> <div class="uploaded-receipt-info" > <h5>Comprobante de Pago</h5> <p>$ {
+                        msg.fileName
+                    }
+
+                    </p> </div> </div> <div class="chat-time" >$ {
+                        new Date(msg.timestamp).toLocaleTimeString()
+                    }
+
+                    - $ {
+                        user?.name || 'Usuario'
+                    }
+
+                    </div> </div> `;
+                }
+
+                return ` <div class="chat-message ${isMe ? 'sent' : 'received'}" > $ {
+                    msg.text
+                }
+
+                <div class="chat-time" >$ {
+                    new Date(msg.timestamp).toLocaleTimeString()
+                }
+
+                - $ {
+                    user?.name || 'Usuario'
+                }
+
+                </div> </div> `;
+            }).join('');
+
+        container.scrollTop=container.scrollHeight;
+    }
+}
+
+function sendChatMessage() {
+    const input=document.getElementById('chat-input');
+    const text=input ? input.value.trim(): '';
+
+    if ( !text || !currentChatOrderId) return;
+
+    if ( !chats[currentChatOrderId]) {
+        chats[currentChatOrderId]=[];
+    }
+
+    chats[currentChatOrderId].push({
+        userId: currentUser.id,
+        text: text,
+        timestamp: new Date().toISOString()
+    });
+
+saveToStorage();
+if (input) input.value='';
+renderChatMessages(currentChatOrderId);
+}
+
+function handleChatKeypress(e) {
+    if (e.key==='Enter') {
+        sendChatMessage();
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECCIÓN 19: CREACIÓN DE ÓRDENES
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function openCreateOrderModal() {
+    currentOrderType='sell';
+
+    document.getElementById('order-amount').value='';
+    document.getElementById('order-price').value='';
+    document.getElementById('ad-bank-holder').value='';
+    document.getElementById('ad-bank-id').value='';
+    document.getElementById('ad-bank-name').value='';
+    document.getElementById('ad-bank-type').value='';
+    document.getElementById('ad-bank-account').value='';
+
+    const btnSell=document.getElementById('btn-sell');
+    const btnBuy=document.getElementById('btn-buy');
+    if (btnSell) btnSell.classList.add('active');
+    if (btnBuy) btnBuy.classList.remove('active');
+
+    const bankSection=document.getElementById('ad-bank-data-section');
+    if (bankSection) bankSection.style.display='block';
+
+    const modal=document.getElementById('create-order-modal');
+    if (modal) modal.classList.add('active');
+
+    const btnPublicar=document.getElementById('btn-publicar-orden');
+    if (btnPublicar) btnPublicar.disabled=true;
+
+    validateAndCalculatePrice();
+}
+
+function toggleOrderType(type) {
+    currentOrderType=type;
+
+    const btnSell=document.getElementById('btn-sell');
+    const btnBuy=document.getElementById('btn-buy');
+    const orderWarning=document.getElementById('order-warning');
+    const bankSection=document.getElementById('ad-bank-data-section');
+
+    if (btnSell) btnSell.classList.toggle('active', type==='sell');
+    if (btnBuy) btnBuy.classList.toggle('active', type==='buy');
+
+    const warningText=type==='sell'
+    ? 'Al vender, tus tokens serán bloqueados en escrow hasta que confirmes recibir el pago.'
+    : 'Al comprar, deberás transferir el monto exacto en BS al vendedor.';
+
+    if (orderWarning) orderWarning.textContent=warningText;
+
+    if (bankSection) {
+        bankSection.style.display=type==='sell' ? 'block': 'none';
+    }
+
+    validateOrderForm();
+}
+
+function calculateOrderTotal() {
+    const amount=parseFloat(document.getElementById('order-amount').value) || 0;
+    const price=parseFloat(document.getElementById('order-price').value) || 0;
+    const totalBs=amount * price;
+    const commissionBS=convertTokensToBS(amount * SYSTEM_CONFIG.COMMISSION_RATE);
+    const netBS=convertTokensToBS(amount) - commissionBS;
+
+    document.getElementById('order-total-bs').textContent=formatBS(totalBs);
+    document.getElementById('order-commission-usd').textContent=formatBS(commissionBS);
+    document.getElementById('order-net-bs').textContent=formatBS(netBS);
+
+    validateOrderForm();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECCIÓN 20: VALIDACIÓN DE RIESGO
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function validateAndCalculatePrice() {
+    const priceInput=document.getElementById('order-price');
+    const price=parseFloat(priceInput.value);
+    const validationEl=document.getElementById('price-validation');
+    const btnPublicar=document.getElementById('btn-publicar-orden');
+
+    const minPrice=SYSTEM_CONFIG.BASE_RATE;
+    const maxPrice=SYSTEM_CONFIG.BASE_RATE * (1 + SYSTEM_CONFIG.PRICE_VARIATION_LIMIT);
+
+    const rangeDisplay=document.getElementById('price-range-display');
+
+    if (rangeDisplay) rangeDisplay.textContent=`$ {
+        maxPrice.toFixed(2)
+    }
+
+    `;
+
+    if ( !price || price <=0) {
+        if (validationEl) {
+            validationEl.innerHTML='<span>💡</span> Ingresa un precio';
+            validationEl.className='price-validation';
+        }
+
+        if (btnPublicar) btnPublicar.disabled=true;
+        calculateOrderTotal();
+        return;
+    }
+
+    if (price >=minPrice && price <=maxPrice) {
+        if (validationEl) {
+            validationEl.innerHTML=`<span>✅</span>Precio válido`;
+            validationEl.className='price-validation valid';
+        }
+
+        const amount=parseFloat(document.getElementById('order-amount').value) || 0;
+
+        if (amount > 0 && (currentOrderType==='buy' || validateAdBankData())) {
+            if (btnPublicar) btnPublicar.disabled=false;
+        }
+    }
+
+    else {
+        if (validationEl) {
+            validationEl.innerHTML=`<span>❌</span>Precio fuera de rango`;
+            validationEl.className='price-validation invalid';
+        }
+
+        if (btnPublicar) btnPublicar.disabled=true;
+        blockedPublicationsToday++;
+        saveToStorage();
+    }
+
+    calculateOrderTotal();
+}
+
+function validateAdBankData() {
+    const holder=document.getElementById('ad-bank-holder')?.value;
+    const id=document.getElementById('ad-bank-id')?.value;
+    const bank=document.getElementById('ad-bank-name')?.value;
+    const account=document.getElementById('ad-bank-account')?.value;
+    const type=document.getElementById('ad-bank-type')?.value;
+
+    return holder && id && bank && account && type;
+}
+
+function validateOrderForm() {
+    const amount=parseFloat(document.getElementById('order-amount').value) || 0;
+    const price=parseFloat(document.getElementById('order-price').value) || 0;
+    const btn=document.getElementById('btn-publicar-orden');
+
+    let canPublish=amount>0 && price>=SYSTEM_CONFIG.BASE_RATE && price <=SYSTEM_CONFIG.BASE_RATE * (1 + SYSTEM_CONFIG.PRICE_VARIATION_LIMIT);
+
+    if (currentOrderType==='sell' && canPublish) {
+        canPublish=validateAdBankData();
+    }
+
+    if (btn) btn.disabled= !canPublish;
+}
+
+function createOrder() {
+    const amount=parseFloat(document.getElementById('order-amount').value);
+    const price=parseFloat(document.getElementById('order-price').value);
+
+    if ( !amount || amount <=0) {
+        showNotification('error', 'Ingresa una cantidad válida');
+        return;
+    }
+
+    if ( !price || price <=0) {
+        showNotification('error', 'Ingresa un precio válido');
+        return;
+    }
+
+    const minPrice=SYSTEM_CONFIG.BASE_RATE;
+    const maxPrice=SYSTEM_CONFIG.BASE_RATE * (1 + SYSTEM_CONFIG.PRICE_VARIATION_LIMIT);
+
+    if (price < minPrice || price > maxPrice) {
+        showNotification('error', 'Precio fuera de rango permitido');
+        blockedPublicationsToday++;
+        saveToStorage();
+        return;
+    }
+
+    if (currentOrderType==='sell' && currentUser.balance < amount) {
+        showNotification('error', 'No tienes suficientes tokens');
+        return;
+    }
+
+    let orderBankData=null;
+
+    if (currentOrderType==='sell') {
+        orderBankData= {
+            holder: document.getElementById('ad-bank-holder').value,
+                id: document.getElementById('ad-bank-id').value,
+                bank: document.getElementById('ad-bank-name').value,
+                account: document.getElementById('ad-bank-account').value,
+                type: document.getElementById('ad-bank-type').value
+        }
+
+        ;
+    }
+
+    const commission=amount * SYSTEM_CONFIG.COMMISSION_RATE;
+    const total=amount * price;
+
+    const newOrder= {
+        id: String(nextOrderId++).padStart(3, '0'),
+            userId: currentUser.id,
+            type: currentOrderType,
+            amount: amount,
+            price: price,
+            total: total,
+            commission: commission,
+            min: amount * 0.1,
+            max: amount,
+            status: 'active',
+            createdAt: new Date().toISOString(),
+            counterpartyId: null,
+            escrowReleased: false,
+            isVerified: false,
+            isAdminAd: false,
+            bankData: orderBankData
+    }
+
+    ;
+
+    if (currentOrderType==='sell') {
+        currentUser.balance -=amount;
+        currentUser.escrow+=amount;
+        updateUser(currentUser);
+    }
+
+    orders.push(newOrder);
+    saveToStorage();
+
+    closeModal('create-order-modal');
+    showNotification('success', 'Orden publicada correctamente');
+
+    document.getElementById('order-amount').value='';
+    document.getElementById('order-price').value='';
+    document.getElementById('ad-bank-holder').value='';
+    document.getElementById('ad-bank-id').value='';
+    document.getElementById('ad-bank-name').value='';
+    document.getElementById('ad-bank-type').value='';
+    document.getElementById('ad-bank-account').value='';
+    calculateOrderTotal();
+
+    if (currentUser.role !=='admin') {
+        updateBalanceDisplay();
+        showSection('my-orders');
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECCIÓN 21: PANEL DE ADMINISTRACIÓN
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function updateTasaPreview() {
+    const inputEl=document.getElementById('input-tasa-bcv');
+    if ( !inputEl) return;
+
+    const tasa=parseFloat(inputEl.value) || 0;
+    const max=tasa * (1 + SYSTEM_CONFIG.PRICE_VARIATION_LIMIT);
+
+    const minEl=document.getElementById('tasa-rango-min');
+    const maxEl=document.getElementById('tasa-rango-max');
+
+    if (minEl) minEl.textContent=tasa.toFixed(2);
+    if (maxEl) maxEl.textContent=max.toFixed(2);
+}
+
+function guardarTasaMaestra() {
+    const inputEl=document.getElementById('input-tasa-bcv');
+    if ( !inputEl) return;
+
+    const nuevaTasa=parseFloat(inputEl.value);
+
+    if ( !nuevaTasa || nuevaTasa <=0) {
+        showNotification('error', 'Ingresa una tasa válida mayor a 0');
+        return;
+    }
+
+    SYSTEM_CONFIG.BASE_RATE=nuevaTasa;
+    localStorage.setItem('atk_tasa_maestra', nuevaTasa.toString());
+
+    const tasaActual=document.getElementById('tasa-actual');
+    const currentRate=document.getElementById('current-rate');
+    const rateBs=document.getElementById('rate-bs');
+    const configTasa=document.getElementById('config-tasa-bs');
+
+    if (tasaActual) tasaActual.textContent=nuevaTasa.toFixed(2);
+    if (currentRate) currentRate.textContent=nuevaTasa.toFixed(2);
+    if (rateBs) rateBs.textContent=nuevaTasa.toFixed(2);
+    if (configTasa) configTasa.textContent=nuevaTasa.toFixed(2);
+
+    showNotification('success', `Tasa actualizada: 1 Token=$ {
+            nuevaTasa.toFixed(2)
+        }
+
+        BS`);
+    updateAllBalancesDisplay();
+
+    if (currentUser && currentUser.role !=='admin') {
+        renderMarketplace();
+    }
+}
+
+function updateTasaStats() {
+    const activas=orders.filter(o=> o.status==='active').length;
+    const activasEl=document.getElementById('publicaciones-activas');
+    const bloqueadasEl=document.getElementById('publicaciones-bloqueadas');
+
+    if (activasEl) activasEl.textContent=activas;
+    if (bloqueadasEl) bloqueadasEl.textContent=blockedPublicationsToday;
+}
+
+function switchAdminMarketTab(tab) {
+    document.querySelectorAll('.admin-market-tab').forEach(t=> t.classList.remove('active'));
+    document.querySelectorAll('.admin-market-section').forEach(s=> s.classList.remove('active'));
+
+    document.querySelectorAll('.admin-market-tab').forEach(btn=> {
+            if (btn.getAttribute('onclick') && btn.getAttribute('onclick').includes(tab)) {
+                btn.classList.add('active');
+            }
+        });
+
+    const section=document.getElementById(tab + '-section');
+    if (section) section.classList.add('active');
+
+    if (tab==='liquidity') {
+        renderAdminMyAds();
+        updateLiquidityStats();
+    }
+
+    else if (tab==='moderation') {
+        renderModerationTable();
+    }
+
+    else if (tab==='tasa') {
+        updateTasaStats();
+    }
+}
+
+function renderAdminMarket() {
+    updateLiquidityStats();
+    renderAdminMyAds();
+    renderModerationTable();
+    updateTasaStats();
+}
+
+function updateLiquidityStats() {
+    const activeOrders=orders.filter(o=> o.status==='active');
+    const totalLiquidity=activeOrders.reduce((sum, o)=> sum + o.amount, 0);
+    const myAds=activeOrders.filter(o=> o.userId===currentUser.id);
+    const userAds=activeOrders.filter(o=> o.userId !==currentUser.id);
+
+    const totalEl=document.getElementById('admin-total-liquidity');
+    const myAdsEl=document.getElementById('admin-my-ads-count');
+    const userAdsEl=document.getElementById('admin-user-ads-count');
+
+    if (totalEl) totalEl.textContent=totalLiquidity.toLocaleString();
+    if (myAdsEl) myAdsEl.textContent=myAds.length;
+    if (userAdsEl) userAdsEl.textContent=userAds.length;
+}
+
+function createAdminAd() {
+    const amount=parseFloat(document.getElementById('admin-ad-amount').value);
+    const price=parseFloat(document.getElementById('admin-ad-price').value);
+    const payment=document.getElementById('admin-ad-payment').value;
+    const notes=document.getElementById('admin-ad-notes').value;
+    const bankHolder=document.getElementById('admin-ad-bank-holder').value;
+    const bankId=document.getElementById('admin-ad-bank-id').value;
+    const bankName=document.getElementById('admin-ad-bank-name').value;
+    const bankType=document.getElementById('admin-ad-bank-type').value;
+    const bankAccount=document.getElementById('admin-ad-bank-account').value;
+
+    if ( !amount || amount <=0) {
+        showNotification('error', 'Ingresa una cantidad válida');
+        return;
+    }
+
+    if ( !price || price <=0) {
+        showNotification('error', 'Ingresa un precio válido');
+        return;
+    }
+
+    if ( !bankHolder || !bankId || !bankName || !bankType || !bankAccount) {
+        showNotification('error', 'Completa todos los datos bancarios');
+        return;
+    }
+
+    const newOrder= {
+
+        id: String(nextOrderId++).padStart(3, '0'),
+        userId: currentUser.id,
+        type: 'sell',
+        amount: amount,
+        price: price,
+        total: amount * price,
+        commission: amount * SYSTEM_CONFIG.COMMISSION_RATE,
+        min: amount * 0.05,
+        max: amount,
+        status: 'active',
+        createdAt: new Date().toISOString(),
+        counterpartyId: null,
+        escrowReleased: false,
+        isVerified: true,
+        isAdminAd: true,
+        paymentMethod: payment,
+        notes: notes,
+        bankData: {
+            holder: bankHolder,
+                id: bankId,
+                bank: bankName,
+                type: bankType,
+                account: bankAccount
+        }
+    }
+
+    ;
+
+    orders.push(newOrder);
+    saveToStorage();
+
+    showNotification('success', `Anuncio creado con $ {
+            amount.toLocaleString()
+        }
+
+        tokens`);
+
+    resetAdminAdForm();
+    updateLiquidityStats();
+    renderAdminMyAds();
+}
+
+function resetAdminAdForm() {
+    document.getElementById('admin-ad-amount').value='';
+    document.getElementById('admin-ad-price').value=SYSTEM_CONFIG.BASE_RATE.toFixed(2);
+    document.getElementById('admin-ad-payment').value='all';
+    document.getElementById('admin-ad-notes').value='';
+    document.getElementById('admin-ad-bank-holder').value='';
+    document.getElementById('admin-ad-bank-id').value='';
+    document.getElementById('admin-ad-bank-name').value='';
+    document.getElementById('admin-ad-bank-type').value='';
+    document.getElementById('admin-ad-bank-account').value='';
+}
+
+function renderAdminMyAds() {
+    const container=document.getElementById('admin-my-ads-list');
+    const myAds=orders.filter(o=> o.userId===currentUser.id && o.status==='active');
+
+    if (myAds.length===0) {
+        if (container) {
+            container.innerHTML=` <div style="text-align: center; padding: 40px; color: #6b7280;"><p>No tienes anuncios activos</p></div>`;
+        }
+
+        return;
+    }
+
+    if (container) {
+        container.innerHTML=myAds.map(ad=> ` <div class="my-ad-item verified" > <div class="my-ad-info" > <h4> <span class="verified-badge" >VERIFICADO</span> $ {
+                ad.amount.toLocaleString()
+            }
+
+            TKN @ $ {
+                ad.price.toFixed(2)
+            }
+
+            BS </h4> <p> Total: $ {
+                formatBS(ad.amount * ad.price)
+            }
+
+            | Método: $ {
+                getPaymentMethodName(ad.paymentMethod)
+            }
+
+            </p> <p style="font-size: 11px; color: #9ca3af; margin-top: 4px;" > 💳 $ {
+                ad.bankData?.bank ? getBankName(ad.bankData.bank) : 'N/A'
+            }
+
+            </p> </div> <div class="my-ad-actions" > <button class="btn-icon btn-edit" onclick="editAdminAd('${ad.id}')" >✏️</button> <button class="btn-icon btn-delete" onclick="deleteAdminAd('${ad.id}')" >🗑️</button> </div> </div> `).join('');
+    }
+}
+
+function getPaymentMethodName(method) {
+    const methods= {
+        'all': 'Todos',
+            'transfer': 'Transferencia',
+            'pago-movil': 'Pago Móvil',
+            'efectivo': 'Efectivo',
+            'binance': 'Binance Pay'
+    }
+
+    ;
+    return methods[method] || method;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECCIÓN 22: EDICIÓN Y ELIMINACIÓN (CON MASTER KEY)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function editAdminAd(adId) {
+    const ad=orders.find(o=> o.id===adId);
+    if ( !ad) return;
+
+    currentAdminAdEdit=ad;
+
+    document.getElementById('edit-ad-id').value=ad.id;
+    document.getElementById('edit-ad-amount').value=ad.amount;
+    document.getElementById('edit-ad-price').value=ad.price;
+    document.getElementById('edit-ad-payment').value=ad.paymentMethod || 'all';
+    document.getElementById('edit-ad-notes').value=ad.notes || '';
+
+    if (ad.bankData) {
+        document.getElementById('edit-ad-bank-holder').value=ad.bankData.holder || '';
+        document.getElementById('edit-ad-bank-id').value=ad.bankData.id || '';
+        document.getElementById('edit-ad-bank-name').value=ad.bankData.bank || '';
+        document.getElementById('edit-ad-bank-type').value=ad.bankData.type || '';
+        document.getElementById('edit-ad-bank-account').value=ad.bankData.account || '';
+    }
+
+    const modal=document.getElementById('edit-admin-ad-modal');
+    if (modal) modal.classList.add('active');
+}
+
+function saveEditedAdminAd() {
+    if ( !currentAdminAdEdit) return;
+
+    const newAmount=parseFloat(document.getElementById('edit-ad-amount').value);
+    const newPrice=parseFloat(document.getElementById('edit-ad-price').value);
+
+    if ( !newAmount || newAmount <=0 || !newPrice || newPrice <=0) {
+        showNotification('error', 'Valores inválidos');
+        return;
+    }
+
+    currentAdminAdEdit.amount=newAmount;
+    currentAdminAdEdit.price=newPrice;
+    currentAdminAdEdit.total=newAmount * newPrice;
+    currentAdminAdEdit.editedAt=new Date().toISOString();
+
+    saveToStorage();
+    showNotification('success', 'Anuncio actualizado');
+    closeModal('edit-admin-ad-modal');
+    renderAdminMyAds();
+    updateLiquidityStats();
+}
+
+function deleteAdminAd(adId) {
+
+    // Requerir Master Key para eliminación
+    requireMasterKey('delete_ad', ()=> {
+            if ( !confirm('¿Eliminar este anuncio?')) return;
+
+            const index=orders.findIndex(o=> o.id===adId);
+
+            if (index > -1) {
+                orders[index].status='cancelled';
+                orders[index].cancelledAt=new Date().toISOString();
+                saveToStorage();
+                showNotification('info', 'Anuncio eliminado');
+                renderAdminMyAds();
+                updateLiquidityStats();
+            }
+        });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECCIÓN 23: MODERACIÓN DE ANUNCIOS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function renderModerationTable() {
+    const tbody=document.getElementById('moderation-table-body');
+    const searchInput=document.getElementById('moderation-search');
+    const searchTerm=searchInput ? searchInput.value.toLowerCase(): '';
+
+    let userAds=orders.filter(o=> o.status==='active' && o.userId !==currentUser.id);
+
+    if (searchTerm) {
+        userAds=userAds.filter(o=> {
+                const user=users.find(u=> u.id===o.userId);
+                return o.id.toLowerCase().includes(searchTerm) || (user?.name || '').toLowerCase().includes(searchTerm);
+            });
+    }
+
+    userAds.sort((a, b)=> new Date(b.createdAt) - new Date(a.createdAt));
+
+    if ( !tbody) return;
+
+    tbody.innerHTML=userAds.map(ad=> {
+            const user=users.find(u=> u.id===ad.userId);
+            const isVerified=ad.isVerified;
+
+            return ` <tr> <td class="mono" >#$ {
+                ad.id
+            }
+
+            </td> <td> <div style="font-weight: 600;" >$ {
+                user?.name || 'Desconocido'
+            }
+
+            </div> <div style="font-size: 12px; color: #6b7280;" >ID: $ {
+                user?.id
+            }
+
+            </div> </td> <td> <span class="badge ${ad.type === 'buy' ? 'badge-success' : 'badge-danger'}" > $ {
+                ad.type==='buy' ? 'Compra' : 'Venta'
+            }
+
+            </span> </td> <td class="mono" >$ {
+                ad.amount.toLocaleString()
+            }
+
+            TKN</td> <td>$ {
+                ad.price.toFixed(2)
+            }
+
+            BS</td> <td> $ {
+                isVerified ? '<span class="badge badge-gold">✓ Verificado</span>' : '<span class="badge badge-info">Normal</span>'
+            }
+
+            </td> <td>$ {
+                new Date(ad.createdAt).toLocaleDateString()
+            }
+
+            </td> <td> <div class="action-btns" > <button class="btn-icon btn-edit" onclick="editUserAd('${ad.id}')" >✏️</button> <button class="btn-icon btn-verify" onclick="toggleVerifyAd('${ad.id}')" > $ {
+                isVerified ? '👑' : '✓'
+            }
+
+            </button> <button class="btn-icon btn-delete" onclick="deleteUserAd('${ad.id}')" >🗑️</button> </div> </td> </tr> `;
+        }).join('');
+
+    if (userAds.length===0) {
+        tbody.innerHTML='<tr><td colspan="8" style="text-align: center; padding: 40px;">No hay anuncios</td></tr>';
+    }
+}
+
+function filterModerationTable() {
+    renderModerationTable();
+}
+
+function editUserAd(adId) {
+    const ad=orders.find(o=> o.id===adId);
+    if ( !ad) return;
+
+    currentUserAdEdit=ad;
+
+    document.getElementById('edit-user-ad-id').value=ad.id;
+    document.getElementById('edit-user-ad-amount').value=ad.amount;
+    document.getElementById('edit-user-ad-price').value=ad.price;
+    document.getElementById('edit-user-ad-verified').value=ad.isVerified ? 'true': 'false';
+
+    if (ad.bankData) {
+        document.getElementById('edit-user-ad-bank-holder').value=ad.bankData.holder || '';
+        document.getElementById('edit-user-ad-bank-id').value=ad.bankData.id || '';
+        document.getElementById('edit-user-ad-bank-name').value=ad.bankData.bank || '';
+        document.getElementById('edit-user-ad-bank-type').value=ad.bankData.type || '';
+        document.getElementById('edit-user-ad-bank-account').value=ad.bankData.account || '';
+    }
+
+    const modal=document.getElementById('edit-user-ad-modal');
+    if (modal) modal.classList.add('active');
+}
+
+function saveEditedUserAd() {
+    if ( !currentUserAdEdit) return;
+
+    const newAmount=parseFloat(document.getElementById('edit-user-ad-amount').value);
+    const newPrice=parseFloat(document.getElementById('edit-user-ad-price').value);
+    const newVerified=document.getElementById('edit-user-ad-verified').value==='true';
+
+    if ( !newAmount || newAmount <=0 || !newPrice || newPrice <=0) {
+        showNotification('error', 'Valores inválidos');
+        return;
+    }
+
+    currentUserAdEdit.amount=newAmount;
+    currentUserAdEdit.price=newPrice;
+    currentUserAdEdit.isVerified=newVerified;
+    currentUserAdEdit.editedAt=new Date().toISOString();
+
+    saveToStorage();
+    showNotification('success', 'Anuncio actualizado');
+    closeModal('edit-user-ad-modal');
+    renderModerationTable();
+}
+
+function toggleVerifyAd(adId) {
+    const ad=orders.find(o=> o.id===adId);
+    if ( !ad) return;
+
+    ad.isVerified= !ad.isVerified;
+    ad.verifiedBy=ad.isVerified ? currentUser.id: null;
+    saveToStorage();
+    showNotification('success', ad.isVerified ? 'Anuncio verificado' : 'Verificación removida');
+    renderModerationTable();
+}
+
+function deleteUserAd(adId) {
+
+    // Requerir Master Key para eliminar anuncios de usuarios
+    requireMasterKey('delete_user_ad', ()=> {
+            if ( !confirm('¿Eliminar este anuncio de usuario?')) return;
+
+            const index=orders.findIndex(o=> o.id===adId);
+
+            if (index > -1) {
+                orders[index].status='cancelled';
+                orders[index].cancelledAt=new Date().toISOString();
+                saveToStorage();
+                showNotification('info', 'Anuncio eliminado');
+                renderModerationTable();
+            }
+        });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECCIÓN 24: GESTIÓN DE USUARIOS Y DASHBOARD
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function renderUsersTable() {
+    const tbody=document.getElementById('users-table-body');
+    const searchInput=document.getElementById('user-search');
+    const searchTerm=searchInput ? searchInput.value.toLowerCase(): '';
+
+    let filteredUsers=users.filter(u=> u.role !=='admin');
+
+    if (searchTerm) {
+        filteredUsers=filteredUsers.filter(u=> (u.name || '').toLowerCase().includes(searchTerm) || (u.id || '').toLowerCase().includes(searchTerm) || (u.email || '').toLowerCase().includes(searchTerm));
+    }
+
+    if ( !tbody) return;
+
+    tbody.innerHTML=filteredUsers.map(u=> {
+            const bs=convertTokensToBS(u.balance);
+
+            return ` <tr> <td class="mono" >$ {
+                u.id
+            }
+
+            </td> <td>$ {
+                u.name
+            }
+
+            </td> <td>$ {
+                u.email
+            }
+
+            </td> <td>$ {
+                u.phone || '-'
+            }
+
+            </td> <td class="mono" >$ {
+                u.balance.toLocaleString()
+            }
+
+            TKN</td> <td class="mono" >$ {
+                formatBS(bs)
+            }
+
+            </td> <td><span class="badge badge-success" >Activo</span></td> </tr> `;
+        }).join('');
+}
+
+function searchUsers() {
+    renderUsersTable();
+}
+
+function renderAdminDashboard() {
+    updateAdminCommissionDisplay();
+
+    const statUsers=document.getElementById('admin-stat-users');
+    const statOrders=document.getElementById('admin-stat-orders');
+
+    if (statUsers) statUsers.textContent=users.filter(u=> u.role !=='admin').length;
+    if (statOrders) statOrders.textContent=orders.filter(o=> o.status==='active').length;
+
+    const last24h=new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const volume24h=transactions .filter(t=> t.status==='completed' && new Date(t.completedAt) > last24h) .reduce((sum, t)=> sum + t.amount, 0);
+
+    const statVolume=document.getElementById('admin-stat-volume');
+    if (statVolume) statVolume.textContent=volume24h.toLocaleString();
+
+    const today=new Date().toDateString();
+    const commissionsToday=transactions .filter(t=> (t.status==='completed' || t.type==='email_transfer') && new Date(t.completedAt || t.createdAt).toDateString()===today) .reduce((sum, t)=> sum + t.commission, 0);
+
+    const statCommission=document.getElementById('admin-stat-commission');
+    if (statCommission) statCommission.textContent=commissionsToday.toFixed(2);
+}
+
+async function updateAdminCommissionDisplay() {
+    if ( !currentUser || currentUser.role !=='admin') return;
+
+    // Obtenemos el balance del perfil del admin de forma segura
+    const {
+        data: adminProfile, error
+    }
+
+    =await supabase .from('profiles') .select('wallet_balance') .eq('id', currentUser.id) .single();
+
+    if (error) return console.error("Error fetching admin balance", error);
+
+    const tokens=adminProfile.wallet_balance;
+    const bs=convertTokensToBS(tokens);
+
+    const adminCommissionBalance=document.getElementById('admin-commission-balance');
+    const adminCommissionBs=document.getElementById('admin-commission-bs');
+
+    if (adminCommissionBalance) adminCommissionBalance.textContent=`$ {
+        parseFloat(tokens).toLocaleString()
+    }
+
+    TKN`;
+    if (adminCommissionBs) adminCommissionBs.textContent=formatBS(bs);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECCIÓN 25: MONITOR DE ÓRDENES (CON MASTER KEY)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function renderAdminOrders() {
+    const container=document.getElementById('admin-orders-list');
+    const activeTransactions=transactions.filter(t=> (t.status==='pending' || t.status==='paid') && !t.type);
+
+    if (activeTransactions.length===0) {
+        if (container) container.innerHTML='<p style="color: #6b7280;">No hay órdenes activas</p>';
+        return;
+    }
+
+    if (container) {
+        container.innerHTML=activeTransactions.map(t=> {
+                const seller=users.find(u=> u.id===t.sellerId);
+                const buyer=users.find(u=> u.id===t.buyerId);
+
+                return ` <div class="order-card" onclick="openAdminOrderDetail('${t.id}')" style="cursor: pointer;" > <div class="order-header" > <span class="order-type ${t.status === 'paid' ? 'buy' : 'sell'}" > $ {
+                    t.status==='paid' ? '✅ Pagado' : '⏳ Pendiente'
+                }
+
+                </span> <span class="order-price" >$ {
+                    t.amount.toLocaleString()
+                }
+
+                TKN</span> </div> <div style="margin-bottom: 8px;" > <div style="font-size: 13px;" ><strong>Vendedor:</strong> $ {
+                    seller?.name || 'Desconocido'
+                }
+
+                </div> <div style="font-size: 13px;" ><strong>Comprador:</strong> $ {
+                    buyer?.name || 'Desconocido'
+                }
+
+                </div> </div> </div> `;
+            }).join('');
+    }
+}
+
+function openAdminOrderDetail(transactionId) {
+    const transaction=transactions.find(t=> t.id===transactionId);
+    if ( !transaction) return;
+
+    currentTransaction=transaction;
+    const modal=document.getElementById('admin-order-modal');
+    if (modal) modal.classList.add('active');
+
+    const seller=users.find(u=> u.id===transaction.sellerId);
+    const buyer=users.find(u=> u.id===transaction.buyerId);
+
+    const adminOrderInfo=document.getElementById('admin-order-info');
+
+    if (adminOrderInfo) {
+        adminOrderInfo.innerHTML=` <div><strong>ID:</strong>#$ {
+            transaction.id
+        }
+
+        </div><div><strong>Vendedor:</strong>$ {
+            seller?.name
+        }
+
+        </div><div><strong>Comprador:</strong>$ {
+            buyer?.name
+        }
+
+        </div><div><strong>Cantidad:</strong>$ {
+            transaction.amount.toLocaleString()
+        }
+
+        TKN</div><div><strong>Total BS:</strong>$ {
+            formatBS(transaction.totalBs)
+        }
+
+        </div><div><strong>Estado:</strong>$ {
+            transaction.status
+        }
+
+        </div>`;
+    }
+}
+
+function forceReleaseEscrow() {
+
+    // Requerir Master Key para liberación forzada
+    requireMasterKey('force_release', ()=> {
+            if ( !currentTransaction) return;
+
+            if ( !confirm('¿Liberación forzada?')) return;
+
+            const transaction=currentTransaction;
+            const seller=users.find(u=> u.id===transaction.sellerId);
+            const buyer=users.find(u=> u.id===transaction.buyerId);
+
+            seller.escrow -=transaction.amount;
+            const commission=transaction.commission;
+            const amountToBuyer=transaction.amount - commission;
+
+            buyer.balance +=amountToBuyer;
+            // Comisión manejada por backend
+
+            transaction.status='completed';
+            transaction.completedAt=new Date().toISOString();
+            transaction.forceReleased=true;
+
+            delete escrowTimers[transaction.id];
+
+            updateUser(seller);
+            updateUser(buyer);
+            saveToStorage();
+
+            showNotification('success', `Liberación ejecutada. $ {
+                    amountToBuyer.toLocaleString()
+                }
+
+                TKN transferidos.`);
+            closeModal('admin-order-modal');
+            renderAdminOrders();
+        });
+}
+
+function cancelOrderAdmin() {
+
+    // Requerir Master Key para cancelación
+    requireMasterKey('cancel_order', ()=> {
+            if ( !currentTransaction) return;
+
+            if ( !confirm('¿Cancelar orden?')) return;
+
+            const transaction=currentTransaction;
+            const seller=users.find(u=> u.id===transaction.sellerId);
+
+            seller.escrow -=transaction.amount;
+            seller.balance +=transaction.amount;
+
+            transaction.status='cancelled';
+
+            const order=orders.find(o=> o.id===transaction.orderId);
+
+            if (order) {
+                order.status='active';
+                order.counterpartyId=null;
+                order.transactionId=null;
+                updateOrder(order);
+            }
+
+            delete escrowTimers[transaction.id];
+
+            updateUser(seller);
+            saveToStorage();
+            showNotification('info', 'Orden cancelada');
+            closeModal('admin-order-modal');
+            renderAdminOrders();
+        });
+}
+
+function renderHistory() {
+    const tbody=document.getElementById('history-table-body');
+    const completedTransactions=transactions.filter(t=> t.status==='completed' || t.type==='email_transfer'
+    );
+
+    if ( !tbody) return;
+
+    tbody.innerHTML=completedTransactions.map(t=> {
+            const seller=users.find(u=> u.id===(t.sellerId || t.fromId));
+            const buyer=users.find(u=> u.id===(t.buyerId || t.toId));
+            const isEmail=t.type==='email_transfer';
+
+            return ` <tr> <td>$ {
+                new Date(t.completedAt || t.createdAt).toLocaleDateString()
+            }
+
+            </td> <td class="mono" >#$ {
+                t.id
+            }
+
+            </td> <td>$ {
+                seller?.name || 'Desconocido'
+            }
+
+            </td> <td>$ {
+                buyer?.name || 'Desconocido'
+            }
+
+            </td> <td>$ {
+                isEmail ? 'Email' : 'P2P'
+            }
+
+            </td> <td class="mono" >$ {
+                t.amount.toLocaleString()
+            }
+
+            TKN</td> <td class="mono" >$ {
+                formatBS(convertTokensToBS(t.amount))
+            }
+
+            </td> <td class="mono" >$ {
+                formatBS(convertTokensToBS(t.commission))
+            }
+
+            </td> </tr> `;
+        }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECCIÓN 26: GESTIÓN DE ÓRDENES DEL USUARIO
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function renderMyOrders() {
+    const container=document.getElementById('my-orders-list');
+    if ( !container) return;
+
+    const myTransactions=transactions.filter(t=> (t.sellerId===currentUser.id || t.buyerId===currentUser.id) && !t.type && t.status !=='completed' && t.status !=='cancelled'
+    );
+
+    const myOrders=orders.filter(o=> o.userId===currentUser.id && (o.status==='active' || o.status==='in_transaction'));
+
+    if (myTransactions.length===0 && myOrders.length===0) {
+        container.innerHTML=` <div style="text-align: center; padding: 60px 20px; color: #6b7280;"><p>No tienes órdenes activas</p></div>`;
+        return;
+    }
+
+    let html='';
+
+    myTransactions.forEach(t=> {
+            const isSeller=t.sellerId===currentUser.id;
+            const otherParty=users.find(u=> u.id===(isSeller ? t.buyerId : t.sellerId));
+
+            html +=` <div class="order-card" onclick="openChat('${t.id}', '${t.orderId}')" style="cursor: pointer;" > <div class="order-header" > <span class="order-type ${isSeller ? 'sell' : 'buy'}" >$ {
+                isSeller ? 'Venta' : 'Compra'
+            }
+
+            en Proceso</span> <span class="order-price" >$ {
+                t.amount.toLocaleString()
+            }
+
+            TKN</span> </div> <div style="margin-bottom: 12px;" > <div style="font-size: 13px; color: #9ca3af;" >$ {
+                isSeller ? 'Comprador' : 'Vendedor'
+            }
+
+            : $ {
+                otherParty?.name || 'Desconocido'
+            }
+
+            </div> <div style="font-size: 13px; color: #6b7280;" >$ {
+                t.status==='pending' ? '⏳ Esperando pago' : '✅ Pagado'
+            }
+
+            </div> </div> <button class="btn-primary" style="width: 100%;" >Ver Chat</button> </div> `;
+        });
+
+    myOrders.forEach(o=> {
+            html +=` <div class="order-card" > <div class="order-header" > <span class="order-type ${o.type}" >$ {
+                o.type==='buy' ? 'Compra' : 'Venta'
+            }
+
+            Publicada</span> <span class="order-price" >$ {
+                o.price.toFixed(2)
+            }
+
+            BS</span> </div> <div style="margin-bottom: 12px;" > <div style="font-size: 13px; color: #9ca3af;" >Cantidad: $ {
+                o.amount.toLocaleString()
+            }
+
+            TKN</div> <div style="font-size: 13px; color: #6b7280;" >Total: $ {
+                formatBS(o.amount * o.price)
+            }
+
+            </div> </div> </div> `;
+        });
+
+    container.innerHTML=html;
+}
+
+function toggleMyOrders(filter, clickedBtn) {
+    currentMyOrdersFilter=filter;
+
+    const container=document.getElementById('my-orders-section');
+
+    if (container) {
+        container.querySelectorAll('.toggle-btn').forEach(b=> b.classList.remove('active'));
+    }
+
+    if (clickedBtn) {
+        clickedBtn.classList.add('active');
+    }
+
+    else {
+        const btn=document.querySelector(`#my-orders-section .toggle-btn[onclick*="'${filter}'"]`);
+        if (btn) btn.classList.add('active');
+    }
+
+    renderMyOrders();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECCIÓN 27: BILLETERA
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function renderWalletHistory() {
+    const container=document.getElementById('wallet-history');
+    if ( !container) return;
+
+    updateBalanceDisplay();
+
+    const myTransactions=transactions.filter(t=> ((t.sellerId===currentUser.id || t.buyerId===currentUser.id) && t.status==='completed' && !t.type) || (t.type==='email_transfer' && (t.fromId===currentUser.id || t.toId===currentUser.id)));
+
+    if (myTransactions.length===0) {
+        container.innerHTML='<p style="color: #6b7280; text-align: center;">No hay transacciones</p>';
+        return;
+    }
+
+    container.innerHTML=myTransactions.map(t=> {
+            if (t.type==='email_transfer') {
+                const isSender=t.fromId===currentUser.id;
+
+                return ` <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #2a2a2a;" > <div> <div style="font-weight: 600;" >$ {
+                    isSender ? 'Envío' : 'Recepción'
+                }
+
+                por Correo</div> <div style="font-size: 12px; color: #6b7280;" >$ {
+                    new Date(t.createdAt).toLocaleDateString()
+                }
+
+                </div> </div> <div style="color: ${isSender ? '#ef4444' : '#22c55e'}; font-weight: 700;" > $ {
+                    isSender ? '-' : '+'
+                }
+
+                $ {
+                    isSender ? t.amount.toLocaleString() : t.netAmount.toLocaleString()
+                }
+
+                TKN </div> </div> `;
+            }
+
+            const isSeller=t.sellerId===currentUser.id;
+
+            return ` <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #2a2a2a;" > <div> <div style="font-weight: 600;" >$ {
+                isSeller ? 'Venta' : 'Compra'
+            }
+
+            P2P</div> <div style="font-size: 12px; color: #6b7280;" >$ {
+                new Date(t.completedAt).toLocaleDateString()
+            }
+
+            </div> </div> <div style="color: ${isSeller ? '#22c55e' : '#ef4444'}; font-weight: 700;" > $ {
+                isSeller ? '+' : '-'
+            }
+
+            $ {
+                convertTokensToBS(isSeller ? t.amount - t.commission : t.amount).toLocaleString()
+            }
+
+            BS </div> </div> `;
+        }).join('');
+}
+
+function updateBalanceDisplay() {
+    if ( !currentUser || currentUser.role==='admin') return;
+
+    const tokens=currentUser.balance;
+    const bs=convertTokensToBS(tokens);
+    const escrowTokens=currentUser.escrow;
+    const escrowBs=convertTokensToBS(escrowTokens);
+
+    const userBalance=document.getElementById('user-balance');
+    const userBalanceBs=document.getElementById('user-balance-bs');
+    const walletBalance=document.getElementById('wallet-balance');
+    const walletBalanceBs=document.getElementById('wallet-balance-bs');
+    const escrowBalance=document.getElementById('escrow-balance');
+    const escrowBalanceBs=document.getElementById('escrow-balance-bs');
+
+    if (userBalance) userBalance.textContent=`$ {
+        tokens.toLocaleString()
+    }
+
+    TKN`;
+    if (userBalanceBs) userBalanceBs.textContent=formatBS(bs);
+    if (walletBalance) walletBalance.textContent=tokens.toLocaleString();
+    if (walletBalanceBs) walletBalanceBs.textContent=formatBS(bs);
+    if (escrowBalance) escrowBalance.textContent=escrowTokens.toLocaleString();
+    if (escrowBalanceBs) escrowBalanceBs.textContent=formatBS(escrowBs);
+}
+
+function updateAllBalancesDisplay() {
+    if (currentUser && currentUser.role !=='admin') {
+        updateBalanceDisplay();
+    }
+
+    if (currentUser && currentUser.role==='admin') {
+        updateAdminCommissionDisplay();
+    }
+
+    renderUsersTable();
+    renderHistory();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECCIÓN 28: PERFIL
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function renderProfile() {
+    if ( !currentUser) return;
+
+    document.getElementById('profile-name').value=currentUser.name || '';
+    document.getElementById('profile-email').value=currentUser.email || '';
+    document.getElementById('profile-phone').value=currentUser.phone || '';
+
+    const bankData=currentUser.bankData || {}
+
+    ;
+    document.getElementById('profile-bank-holder').value=bankData.holder || '';
+    document.getElementById('profile-bank-id').value=bankData.id || '';
+    document.getElementById('profile-bank-name').value=bankData.bank || '';
+    document.getElementById('profile-bank-account').value=bankData.account || '';
+    document.getElementById('profile-bank-type').value=bankData.type || '';
+}
+
+function saveProfilePersonal(e) {
+    e.preventDefault();
+    currentUser.name=document.getElementById('profile-name').value;
+    currentUser.phone=document.getElementById('profile-phone').value;
+    updateUser(currentUser);
+    showNotification('success', 'Información actualizada');
+}
+
+function saveProfileBank(e) {
+    e.preventDefault();
+
+    currentUser.bankData= {
+        holder: document.getElementById('profile-bank-holder').value,
+            id: document.getElementById('profile-bank-id').value,
+            bank: document.getElementById('profile-bank-name').value,
+            account: document.getElementById('profile-bank-account').value,
+            type: document.getElementById('profile-bank-type').value
+    }
+
+    ;
+    updateUser(currentUser);
+    showNotification('success', 'Datos bancarios actualizados');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECCIÓN 29: UTILIDADES
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function updateUser(updatedUser) {
+    const index=users.findIndex(u=> u.id===updatedUser.id);
+
+    if (index !==-1) {
+        users[index]=updatedUser;
+
+        if (currentUser && currentUser.id===updatedUser.id) {
+            currentUser=updatedUser;
+            localStorage.setItem('currentSession', JSON.stringify(currentUser));
+        }
+
+        saveToStorage();
+    }
+}
+
+function updateOrder(updatedOrder) {
+    const index=orders.findIndex(o=> o.id===updatedOrder.id);
+
+    if (index !==-1) {
+        orders[index]=updatedOrder;
+        saveToStorage();
+    }
+}
+
+function convertTokensToBS(tokens) {
+    return tokens * SYSTEM_CONFIG.BASE_RATE;
+}
+
+function formatBS(amount) {
+    return amount.toLocaleString('es-VE', {
+        minimumFractionDigits: 2, maximumFractionDigits: 2
+    })+' BS';
+}
+
+function getBankName(code) {
+    const banks= {
+        '0102': 'Banco de Venezuela',
+            '0134': 'Banesco',
+            '0105': 'Mercantil',
+            '0108': 'Provincial',
+            '0114': 'Bancaribe',
+            '0138': 'Banco Plaza',
+            '0157': 'Banco Fondo Común',
+            '0163': 'Banco del Tesoro',
+            '0171': 'Banco Digital',
+            '0191': 'BNC'
+    }
+
+    ;
+    return banks[code] || code;
+}
+
+function getAccountTypeName(type) {
+    const types= {
+        'ahorro': 'Cuenta de Ahorro',
+            'corriente': 'Cuenta Corriente',
+            'pago': 'Pago Móvil'
+    }
+
+    ;
+    return types[type] || type;
+}
+
+function showNotification(type, message) {
+    const existing=document.querySelector('.notification');
+    if (existing) existing.remove();
+
+    const notif=document.createElement('div');
+
+    notif.className=`notification $ {
+        type
+    }
+
+    `;
+
+    notif.innerHTML=` <span style="font-size: 20px;">$ {
+        type==='error' ? '⚠️': type==='info' ? 'ℹ️': '✅'
+    }
+
+    </span><span style="font-size: 14px;">$ {
+        message
+    }
+
+    </span><button onclick="this.parentElement.remove()" style="background:none;border:none;color:#6b7280;cursor:pointer;font-size:18px;margin-left:auto;">×</button>`;
+    document.body.appendChild(notif);
+
+    setTimeout(()=> notif.remove(), 6000);
+}
+
+function closeModal(modalId) {
+    const modal=document.getElementById(modalId);
+    if (modal) modal.classList.remove('active');
+}
+
+function closeBenefitsBanner() {
+    const banner=document.getElementById('benefits-banner');
+
+    if (banner) {
+        banner.style.display='none';
+        localStorage.setItem('atk_banner_closed', 'true');
+    }
+}
+
+function copyToClipboard(elementId) {
+    const text=document.getElementById(elementId)?.textContent;
+    if (text) copyTextToClipboard(text);
+}
+
+function copyTextToClipboard(text) {
+    navigator.clipboard.writeText(text).then(()=> {
+            showNotification('success', 'Copiado al portapapeles');
+
+        }).catch(()=> {
+            const input=document.createElement('input');
+            input.value=text;
+            document.body.appendChild(input);
+            input.select();
+            document.execCommand('copy');
+            document.body.removeChild(input);
+            showNotification('success', 'Copiado al portapapeles');
+        });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECCIÓN 30: FUNCIONES ADICIONALES
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function saveDeliveryUrl() {
+    const url=document.getElementById('delivery-url').value;
+    SYSTEM_CONFIG.DELIVERY_URL=url;
+    showNotification('success', 'URL actualizada');
+}
+
+function openRedeemMenu() {
+    const modal=document.getElementById('redeem-menu-modal');
+    if (modal) modal.classList.add('active');
+}
+
+function openP2PFromRedeem() {
+    closeModal('redeem-menu-modal');
+    showSection('market');
+}
+
+function openLocalRedeem() {
+    showNotification('info', 'Próximamente');
+}
+
+function openDelivery() {
+    window.open(SYSTEM_CONFIG.DELIVERY_URL, '_blank');
+}
+
+function showQRCode() {
+    const qrUserId=document.getElementById('qr-user-id');
+    const qrBalance=document.getElementById('qr-balance');
+
+    if (qrUserId) qrUserId.textContent=currentUser.id;
+
+    if (qrBalance) qrBalance.textContent=`$ {
+        currentUser.balance.toLocaleString()
+    }
+
+    TKN`;
+
+    const modal=document.getElementById('qr-modal');
+    if (modal) modal.classList.add('active');
+}
+
+function downloadQR() {
+    showNotification('success', 'QR descargado (simulado)');
+}
+
+function openSendByEmailModal() {
+    document.getElementById('send-email-recipient').value='';
+    document.getElementById('send-email-amount').value='';
+    document.getElementById('send-email-message').value='';
+    document.getElementById('send-available').textContent=currentUser.balance.toLocaleString();
+    document.getElementById('send-total').textContent='0 TKN';
+    document.getElementById('send-commission-bs').textContent='0 BS';
+    document.getElementById('btn-send-email').disabled=true;
+
+    const modal=document.getElementById('send-email-modal');
+    if (modal) modal.classList.add('active');
+}
+
+function calculateSendTotal() {
+    const amount=parseFloat(document.getElementById('send-email-amount').value) || 0;
+    const commissionBS=convertTokensToBS(amount * SYSTEM_CONFIG.COMMISSION_RATE);
+
+    document.getElementById('send-total').textContent=`$ {
+        amount.toLocaleString()
+    }
+
+    TKN`;
+    document.getElementById('send-commission-bs').textContent=formatBS(commissionBS);
+
+    const btn=document.getElementById('btn-send-email');
+
+    if (btn) {
+        btn.disabled= !(amount > 0 && amount <=currentUser.balance);
+    }
+}
+
+function sendByEmail() {
+    const email=document.getElementById('send-email-recipient').value;
+    const amount=parseFloat(document.getElementById('send-email-amount').value);
+    const message=document.getElementById('send-email-message').value;
+
+    if ( !email || !amount) return;
+
+    const recipient=users.find(u=> u.email.toLowerCase()===email.toLowerCase());
+
+    if ( !recipient) {
+        showNotification('error', 'Usuario no encontrado');
+        return;
+    }
+
+    if (recipient.id===currentUser.id) {
+        showNotification('error', 'No puedes enviarte a ti mismo');
+        return;
+    }
+
+    if (currentUser.balance < amount) {
+        showNotification('error', 'Saldo insuficiente');
+        return;
+    }
+
+    const commission=amount * SYSTEM_CONFIG.COMMISSION_RATE;
+    const netAmount=amount - commission;
+
+    currentUser.balance -=amount;
+    recipient.balance+=netAmount;
+    // La comisión se registra en backend vía RPC.
+
+    const transaction= {
+        id: String(nextTransactionId++).padStart(4, '0'),
+            type: 'email_transfer',
+            fromId: currentUser.id,
+            toId: recipient.id,
+            amount: amount,
+            commission: commission,
+            netAmount: netAmount,
+            message: message,
+            createdAt: new Date().toISOString()
+    }
+
+    ;
+    transactions.push(transaction);
+
+    updateUser(currentUser);
+    updateUser(recipient);
+    saveToStorage();
+
+    showNotification('success', `Enviados $ {
+            netAmount.toLocaleString()
+        }
+
+        TKN a $ {
+            recipient.name
+        }
+
+        `);
+    closeModal('send-email-modal');
+    updateBalanceDisplay();
+}
+
+function generateReceipt(transaction, seller, buyer) {
+    const bsAmount=convertTokensToBS(transaction.amount);
+
+    lastReceiptData= {
+        id: `TXN-$ {
+            transaction.id
+        }
+
+        `,
+        date: new Date().toLocaleString('es-VE'),
+        from: seller.name,
+        to: buyer.name,
+        amount: transaction.amount,
+        bs: bsAmount,
+        concept: transaction.isPartial ? 'Compra Parcial P2P' : 'Compra P2P'
+    }
+
+    ;
+
+    document.getElementById('receipt-id').textContent=lastReceiptData.id;
+    document.getElementById('receipt-date').textContent=lastReceiptData.date;
+    document.getElementById('receipt-from').textContent=lastReceiptData.from;
+    document.getElementById('receipt-to').textContent=lastReceiptData.to;
+    document.getElementById('receipt-concept').textContent=lastReceiptData.concept;
+
+    document.getElementById('receipt-amount').textContent=`$ {
+        lastReceiptData.amount.toLocaleString()
+    }
+
+    TKN`;
+    document.getElementById('receipt-bs').textContent=formatBS(lastReceiptData.bs);
+
+    const modal=document.getElementById('receipt-modal');
+    if (modal) modal.classList.add('active');
+}
+
+function downloadReceipt() {
+    showNotification('success', 'Comprobante descargado (simulado)');
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   SECCIÓN 31: MODAL DE COMPRA PARCIAL (P2P)
+   Estilos específicos para el modal de compra parcial.
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+/* El estilo base del modal (.modal, .modal-overlay) y de los inputs (.form-input)
+   se hereda del CSS global, manteniendo la consistencia. */
+
+/* 1. Botón de Confirmación Verde (Estilo 'Comprar') */
+/* Se sobreescribe el .btn-primary naranja para este modal específico */
+#partial-buy-modal #btn-confirm-partial {
+    background: var(--color-buy); /* Verde funcional para 'Comprar' */
+    box-shadow: var(--shadow-buy);
+}
+
+#partial-buy-modal #btn-confirm-partial:hover:not(:disabled) {
+    background: #29a374; /* Verde más oscuro para el hover */
+    box-shadow: 0 4px 15px rgba(46, 189, 133, 0.4);
+    transform: translateY(-2px);
+}
+
+/* 2. Slider de Cantidad (Moderno y con colores de marca) */
+#partial-buy-modal .range-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 8px;
+    background: var(--color-input-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    outline: none;
+    transition: all var(--transition-fast);
+    margin-top: 4px;
+}
+
+/* Manija del slider para Chrome, Safari, Edge */
+#partial-buy-modal .range-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 24px;
+    height: 24px;
+    background: var(--color-primary); /* Naranja institucional */
+    cursor: pointer;
+    border-radius: 50%;
+    border: 4px solid var(--color-surface);
+    box-shadow: 0 0 15px rgba(255, 107, 0, 0.5);
+    transition: all var(--transition-fast);
+}
+
+#partial-buy-modal .range-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.1);
+}
+
+/* Manija del slider para Firefox */
+#partial-buy-modal .range-slider::-moz-range-thumb {
+    width: 24px;
+    height: 24px;
+    background: var(--color-primary); /* Naranja institucional */
+    cursor: pointer;
+    border-radius: 50%;
+    border: 4px solid var(--color-surface);
+    box-shadow: 0 0 15px rgba(255, 107, 0, 0.5);
+    transition: all var(--transition-fast);
+}
+
+#partial-buy-modal .range-slider::-moz-range-thumb:hover {
+    transform: scale(1.1);
+}
+
+/* 3. Input del PIN de Seguridad */
+/* El foco naranja se hereda de .form-input:focus. Aquí aseguramos el estilo de password. */
+#partial-buy-pin {
+    font-family: 'SF Mono', monospace;
+    letter-spacing: 4px;
+    text-align: center;
+    font-size: 20px !important; /* Asegura tamaño para evitar zoom en iOS */
+}
+
+/* 4. Ajustes menores de espaciado */
+#partial-buy-modal .range-values {
+    margin-top: 8px;
+    padding: 0 4px;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECCIÓN 32: INICIALIZACIÓN
+// ═══════════════════════════════════════════════════════════════════════════════
+ 
